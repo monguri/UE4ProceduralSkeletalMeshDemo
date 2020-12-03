@@ -306,18 +306,73 @@ namespace
 		SkeletalMeshData.bDiffPose = false; // こんなのあったんだな。クロスの初期化に使えそう
 	}
 
-	// 2 bone 1 box
+	// 65 bone 1 box
 	void MakeBoxSkeletalMeshImportData(FSkeletalMeshImportData& SkeletalMeshData)
 	{
-		SkeletalMeshData.Points.Emplace(-10.0f + 50.0f, 10.0f, 10.0f);
-		SkeletalMeshData.Points.Emplace(10.0f + 50.0f, 10.0f, 10.0f);
-		SkeletalMeshData.Points.Emplace(-10.0f + 50.0f, -10.0f, 10.0f);
-		SkeletalMeshData.Points.Emplace(10.0f + 50.0f, -10.0f, 10.0f);
+		const int32 NUM_CHILD_BONE = 64; // 4x4x4
+		// Child骨中心にスフィアを想定し、スフィアがBoxを充填するようにBoxを作る
+		const float RADIUS = 10.0f;
 
-		SkeletalMeshData.Points.Emplace(-10.0f + 50.0f, 10.0f, -10.0f);
-		SkeletalMeshData.Points.Emplace(10.0f + 50.0f, 10.0f, -10.0f);
-		SkeletalMeshData.Points.Emplace(-10.0f + 50.0f, -10.0f, -10.0f);
-		SkeletalMeshData.Points.Emplace(10.0f + 50.0f, -10.0f, -10.0f);
+		// Rootジョイント
+		// スキンウェイトはどのメッシュにも割り当てない
+		SkeletalMeshImportData::FJointPos RootJointPos;
+		RootJointPos.Transform = FTransform::Identity;
+		RootJointPos.Length = 1.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
+		RootJointPos.XSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
+		RootJointPos.YSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
+		RootJointPos.ZSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
+
+		SkeletalMeshImportData::FBone RootBone;
+		RootBone.Name = FString("Root");
+		RootBone.Flags = 0x02; // 現状使われてないので指定通りの値をいれておく
+		RootBone.NumChildren = NUM_CHILD_BONE;
+		RootBone.ParentIndex = INDEX_NONE;
+		RootBone.BonePos = RootJointPos;
+
+		SkeletalMeshData.RefBonesBinary.Add(RootBone);
+
+		SkeletalMeshData.Points.Emplace(-RADIUS * 4, RADIUS * 4, RADIUS * 8);
+		SkeletalMeshData.Points.Emplace(RADIUS * 4, RADIUS * 4, RADIUS * 8);
+		SkeletalMeshData.Points.Emplace(-RADIUS * 4, -RADIUS * 4, RADIUS * 8);
+		SkeletalMeshData.Points.Emplace(RADIUS * 4, -RADIUS * 4, RADIUS * 8);
+
+		SkeletalMeshData.Points.Emplace(-RADIUS * 4, RADIUS * 4, 0.0f);
+		SkeletalMeshData.Points.Emplace(RADIUS * 4, RADIUS * 4, 0.0f);
+		SkeletalMeshData.Points.Emplace(-RADIUS * 4, -RADIUS * 4, 0.0f);
+		SkeletalMeshData.Points.Emplace(RADIUS * 4, -RADIUS * 4, 0.0f);
+
+		// Childジョイントを64個作る
+		for (int32 ChildIndex = 0; ChildIndex < NUM_CHILD_BONE; ++ChildIndex)
+		{
+			const FVector& CenterPos = FVector(-3 * RADIUS + (ChildIndex % 4) * 2 * RADIUS, -3 * RADIUS + (ChildIndex % 16 / 4) * 2 * RADIUS, RADIUS + ChildIndex / 16 * 2 * RADIUS);
+
+			SkeletalMeshImportData::FJointPos ChildJointPos;
+			ChildJointPos.Transform = FTransform(CenterPos);
+			ChildJointPos.Length = 1.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
+			ChildJointPos.XSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
+			ChildJointPos.YSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
+			ChildJointPos.ZSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
+
+			SkeletalMeshImportData::FBone ChildBone;
+			ChildBone.Name = FString::Printf(TEXT("Child%d"), ChildIndex);
+			ChildBone.Flags = 0x02; // 現状使われてないので指定通りの値をいれておく
+			ChildBone.NumChildren = 0;
+			ChildBone.ParentIndex = 0;
+			ChildBone.BonePos = ChildJointPos;
+
+			SkeletalMeshData.RefBonesBinary.Add(ChildBone);
+		}
+
+		// 頂点スキニングはRoot骨に全振り
+		SkeletalMeshData.Influences.AddUninitialized(SkeletalMeshData.Points.Num());
+		for (int32 PointIdx = 0; PointIdx < SkeletalMeshData.Points.Num(); PointIdx++)
+		{
+			SkeletalMeshImportData::FRawBoneInfluence I;
+			I.Weight = 1.0f;
+			I.VertexIndex = PointIdx;
+			I.BoneIndex = 0;
+			SkeletalMeshData.Influences[PointIdx] = I;
+		}
 
 		const float OneThird = 1.0f / 3.0f;
 		const float OneFourth = 0.25f;
@@ -645,68 +700,6 @@ namespace
 
 			SkeletalMeshData.Faces.Add(T11);
 		}
-
-		SkeletalMeshImportData::FJointPos J0, J1;
-		J0.Transform = FTransform::Identity;
-		J0.Length = 1.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
-		J0.XSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
-		J0.YSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
-		J0.ZSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
-		J1.Transform = FTransform(FVector(50.0f, 0.0f, 0.0f));
-		J1.Length = 1.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
-		J1.XSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
-		J1.YSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
-		J1.ZSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
-
-		SkeletalMeshImportData::FBone B0, B1;
-		B0.Name = FString("Root");
-		B0.Flags = 0x02; // 現状使われてないので指定通りの値をいれておく
-		B0.NumChildren = 1;
-		B0.ParentIndex = INDEX_NONE;
-		B0.BonePos = J0;
-		B1.Name = FString("Child");
-		B1.Flags = 0x02; // 現状使われてないので指定通りの値をいれておく
-		B1.NumChildren = 0;
-		B1.ParentIndex = 0;
-		B1.BonePos = J1;
-
-		SkeletalMeshData.RefBonesBinary.Add(B0);
-		SkeletalMeshData.RefBonesBinary.Add(B1);
-
-		SkeletalMeshImportData::FRawBoneInfluence I0, I1, I2, I3, I4, I5, I6, I7;
-		I0.Weight = 1.0f;
-		I0.VertexIndex = 0;
-		I0.BoneIndex = 1;
-		I1.Weight = 1.0f;
-		I1.VertexIndex = 1;
-		I1.BoneIndex = 1;
-		I2.Weight = 1.0f;
-		I2.VertexIndex = 2;
-		I2.BoneIndex = 1;
-		I3.Weight = 1.0f;
-		I3.VertexIndex = 3;
-		I3.BoneIndex = 1;
-		I4.Weight = 1.0f;
-		I4.VertexIndex = 4;
-		I4.BoneIndex = 1;
-		I5.Weight = 1.0f;
-		I5.VertexIndex = 5;
-		I5.BoneIndex = 1;
-		I6.Weight = 1.0f;
-		I6.VertexIndex = 6;
-		I6.BoneIndex = 1;
-		I7.Weight = 1.0f;
-		I7.VertexIndex = 7;
-		I7.BoneIndex = 1;
-
-		SkeletalMeshData.Influences.Add(I0);
-		SkeletalMeshData.Influences.Add(I1);
-		SkeletalMeshData.Influences.Add(I2);
-		SkeletalMeshData.Influences.Add(I3);
-		SkeletalMeshData.Influences.Add(I4);
-		SkeletalMeshData.Influences.Add(I5);
-		SkeletalMeshData.Influences.Add(I6);
-		SkeletalMeshData.Influences.Add(I7);
 
 		SkeletalMeshData.PointToRawMap.AddUninitialized(SkeletalMeshData.Points.Num());
 		for (int32 PointIdx = 0; PointIdx < SkeletalMeshData.Points.Num(); PointIdx++)
