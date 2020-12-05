@@ -33,6 +33,13 @@ class UE4PROCSKELMESHDEMO_API UProceduralSkeletalMeshFunctionLibrary : public UB
 	 */
 	UFUNCTION(BlueprintCallable)
 	static bool CreateBoxSkeletalMesh();
+
+	/** 
+	 * Create skeletal mesh of a box and tetrahedron skeleton asset.
+	 * @return True if the operation succeeds, check the log for errors if it didn't succeed.
+	 */
+	UFUNCTION(BlueprintCallable)
+	static bool CreateBoxSkeletalMeshTetrahedronSkeleton();
 #endif
 };
 

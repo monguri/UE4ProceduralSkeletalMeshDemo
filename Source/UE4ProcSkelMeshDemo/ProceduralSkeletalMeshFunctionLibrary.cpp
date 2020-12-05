@@ -653,7 +653,7 @@ namespace
 		}
 	}
 
-	// 65 bone 1 box
+	// 立方体に等間隔に骨を充填する
 	void MakeBoxSkeletalMeshImportData(FSkeletalMeshImportData& SkeletalMeshData)
 	{
 		// XYZのある方向へのボーンの数
@@ -691,6 +691,100 @@ namespace
 				-(NUM_BONE_ONE_AXIS - 1) * RADIUS + (ChildIndex % (NUM_BONE_ONE_AXIS * NUM_BONE_ONE_AXIS) / NUM_BONE_ONE_AXIS) * 2 * RADIUS,
 				RADIUS + ChildIndex / (NUM_BONE_ONE_AXIS * NUM_BONE_ONE_AXIS) * 2 * RADIUS
 			);
+
+			SkeletalMeshImportData::FJointPos ChildJointPos;
+			ChildJointPos.Transform = FTransform(CenterPos);
+			ChildJointPos.Length = 1.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
+			ChildJointPos.XSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
+			ChildJointPos.YSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
+			ChildJointPos.ZSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
+
+			SkeletalMeshImportData::FBone ChildBone;
+			ChildBone.Name = FString::Printf(TEXT("Child%d"), ChildIndex);
+			ChildBone.Flags = 0x02; // 現状使われてないので指定通りの値をいれておく
+			ChildBone.NumChildren = 0;
+			ChildBone.ParentIndex = 0;
+			ChildBone.BonePos = ChildJointPos;
+
+			SkeletalMeshData.RefBonesBinary.Add(ChildBone);
+		}
+
+		// 頂点スキニングはRoot骨に全振り
+		SkeletalMeshData.Influences.AddUninitialized(SkeletalMeshData.Points.Num());
+		for (int32 PointIdx = 0; PointIdx < SkeletalMeshData.Points.Num(); PointIdx++)
+		{
+			SkeletalMeshImportData::FRawBoneInfluence I;
+			I.Weight = 1.0f;
+			I.VertexIndex = PointIdx;
+			I.BoneIndex = 0;
+			SkeletalMeshData.Influences[PointIdx] = I;
+		}
+
+		SkeletalMeshData.NumTexCoords = 1;
+		SkeletalMeshData.MaxMaterialIndex = 0;
+		SkeletalMeshData.bHasVertexColors = false;
+		SkeletalMeshData.bHasNormals = false;
+		SkeletalMeshData.bHasTangents = false;
+		SkeletalMeshData.bUseT0AsRefPose = false; // こんなのあったんだな。クロスの初期化に使えそう
+		SkeletalMeshData.bDiffPose = false; // こんなのあったんだな。クロスの初期化に使えそう
+	}
+
+	// 立方体のメッシュ内に正四面体位置に子ボーンを配置
+	void MakeBoxSkeletalMeshTetrahedronSkeletonImportData(FSkeletalMeshImportData& SkeletalMeshData)
+	{
+		// Child骨中心にスフィアを想定し、スフィアがBoxを充填するようにBoxを作る
+		const float RADIUS = 10.0f;
+
+		MakeBoxMeshData(8 * RADIUS, SkeletalMeshData);
+
+		// Rootジョイント
+		// スキンウェイトはどのメッシュにも割り当てない
+		SkeletalMeshImportData::FJointPos RootJointPos;
+		RootJointPos.Transform = FTransform::Identity;
+		RootJointPos.Length = 1.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
+		RootJointPos.XSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
+		RootJointPos.YSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
+		RootJointPos.ZSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
+
+		SkeletalMeshImportData::FBone RootBone;
+		RootBone.Name = FString("Root");
+		RootBone.Flags = 0x02; // 現状使われてないので指定通りの値をいれておく
+		RootBone.NumChildren = 4;
+		RootBone.ParentIndex = INDEX_NONE;
+		RootBone.BonePos = RootJointPos;
+
+		SkeletalMeshData.RefBonesBinary.Add(RootBone);
+
+		float Sin, Cos;
+		FMath::SinCos(&Sin, &Cos, PI / 6.0f);
+
+		// Childジョイントを4個作る
+		FVector CenterPositions[4] = {
+			FVector(
+				0.0f,
+				RADIUS,
+				3 * RADIUS
+			),
+			FVector(
+				RADIUS * Cos,
+				- RADIUS * Sin,
+				3 * RADIUS
+			),
+			FVector(
+				-RADIUS * Cos,
+				- RADIUS * Sin,
+				3 * RADIUS
+			),
+			FVector(
+				0.0f,
+				0.0f,
+				5 * RADIUS
+			)
+		};
+
+		for (int32 ChildIndex = 0; ChildIndex < 4; ++ChildIndex)
+		{
+			const FVector& CenterPos = CenterPositions[ChildIndex];
 
 			SkeletalMeshImportData::FJointPos ChildJointPos;
 			ChildJointPos.Transform = FTransform(CenterPos);
@@ -858,6 +952,13 @@ bool UProceduralSkeletalMeshFunctionLibrary::CreateBoxSkeletalMesh()
 {
 	FSkeletalMeshImportData SkeletalMeshData;
 	MakeBoxSkeletalMeshImportData(SkeletalMeshData);
+	return CreateSkeletalMesh(SkeletalMeshData);
+}
+
+bool UProceduralSkeletalMeshFunctionLibrary::CreateBoxSkeletalMeshTetrahedronSkeleton()
+{
+	FSkeletalMeshImportData SkeletalMeshData;
+	MakeBoxSkeletalMeshTetrahedronSkeletonImportData(SkeletalMeshData);
 	return CreateSkeletalMesh(SkeletalMeshData);
 }
 #endif // WITH_EDITOR
