@@ -10,7 +10,13 @@ public class UE4ProcSkelMeshDemo : ModuleRules
 	
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" });
 
-		PrivateDependencyModuleNames.AddRange(new string[] { "UnrealEd", "BlueprintGraph", "MeshBuilder" });
+		PrivateDependencyModuleNames.AddRange(new string[] {
+            "UnrealEd",
+            "BlueprintGraph",
+            "MeshBuilder",
+            "AnimGraph",
+            "AnimGraphRuntime"
+        });
 
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
