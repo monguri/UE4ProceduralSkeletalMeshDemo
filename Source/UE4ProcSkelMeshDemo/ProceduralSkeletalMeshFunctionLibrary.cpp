@@ -762,18 +762,18 @@ namespace
 		FVector CenterPositions[4] = {
 			FVector(
 				0.0f,
-				RADIUS,
-				3 * RADIUS
-			),
-			FVector(
 				RADIUS * Cos,
-				- RADIUS * Sin,
-				3 * RADIUS
+				4 * RADIUS - RADIUS * Sin
 			),
 			FVector(
-				-RADIUS * Cos,
-				- RADIUS * Sin,
-				3 * RADIUS
+				RADIUS * Cos * Cos,
+				-RADIUS * Cos * Sin,
+				4 * RADIUS - RADIUS * Sin
+			),
+			FVector(
+				-RADIUS * Cos * Cos,
+				-RADIUS * Cos * Sin,
+				4 * RADIUS - RADIUS * Sin
 			),
 			FVector(
 				0.0f,
