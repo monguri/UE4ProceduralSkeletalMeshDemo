@@ -35,10 +35,13 @@ protected:
 private:
 	struct FPhysicsAssetSphere
 	{
-		int32 BoneIndex = INDEX_NONE;
+		FName BoneName;
 		FTransform Transform = FTransform::Identity;
 		float Radius;
-		FPhysicsAssetSphere(int32 _BoneIndex, const FTransform& _Transform, float _Radius) : BoneIndex(_BoneIndex), Transform(_Transform), Radius(_Radius) {}
+		FPhysicsAssetSphere(FName _BoneName, const FTransform& _Transform, float _Radius) : BoneName(_BoneName), Transform(_Transform), Radius(_Radius) {}
+
+		FCompactPoseBoneIndex WorkBoneIndex = FCompactPoseBoneIndex(INDEX_NONE);
+		FTransform WorkBoneTransform = FTransform::Identity;
 	};
 
 	UPROPERTY(Transient)
