@@ -17,6 +17,13 @@ void FAnimNode_SimulateSlime::OnInitializeAnimInstance(const FAnimInstanceProxy*
 	Spheres.Empty();
 }
 
+void FAnimNode_SimulateSlime::UpdateInternal(const FAnimationUpdateContext& Context)
+{
+	FAnimNode_SkeletalControlBase::UpdateInternal(Context);
+
+	DeltaTime = Context.GetDeltaTime();
+}
+
 bool FAnimNode_SimulateSlime::IsValidToEvaluate(const class USkeleton* Skeleton, const struct FBoneContainer& RequiredBones)
 {
 	return (UsePhysicsAsset != nullptr);
@@ -45,25 +52,25 @@ void FAnimNode_SimulateSlime::InitSpheres(FComponentSpacePoseContext& Input)
 		const FKSphereElem& SphereElem = UsePhysicsAsset->SkeletalBodySetups[i]->AggGeom.SphereElems[0]; 
 
 		FPhysicsAssetSphere Sphere;
-		Sphere.BoneName = UsePhysicsAsset->SkeletalBodySetups[i]->BoneName;
-		Sphere.Transform = SphereElem.GetTransform();
 		Sphere.Radius = SphereElem.Radius;
 
-		int32 BoneIndex = SkeletalMeshComp->GetBoneIndex(Sphere.BoneName);
-		Sphere.WorkBoneIndex = BoneContainer.GetCompactPoseIndexFromSkeletonIndex(BoneIndex);
+		// 動的にメッシュが変わることは想定しない
+		int32 BoneIndex = SkeletalMeshComp->GetBoneIndex(UsePhysicsAsset->SkeletalBodySetups[i]->BoneName);
+		Sphere.BoneIndex = BoneContainer.GetCompactPoseIndexFromSkeletonIndex(BoneIndex);
 
-		FTransform BoneTM = Input.Pose.GetComponentSpaceTransform(Sphere.WorkBoneIndex);
+		FTransform BoneTM = Input.Pose.GetComponentSpaceTransform(Sphere.BoneIndex);
 		float Scale = BoneTM.GetScale3D().GetAbsMax();
 		FVector VectorScale(Scale);
 		BoneTM.RemoveScaling();
 
-		FTransform SphereLocalTM = Sphere.Transform;
+		FTransform SphereLocalTM = SphereElem.GetTransform();
 		SphereLocalTM.ScaleTranslation(VectorScale);
 
-		FTransform SimulateTM = SphereLocalTM * BoneTM;
+		const FTransform& SphereCompTM = SphereLocalTM * BoneTM;
 
-		Sphere.WorkSphereLocation = SimulateTM.GetLocation();
-		Sphere.WorkPrevSphereLocation = SimulateTM.GetLocation();
+		// 入力ポーズの反映はこの初期化時の一回しか行わない
+		Sphere.WorkLocation = SphereCompTM.GetLocation();
+		Sphere.WorkPrevLocation = Sphere.WorkLocation;
 
 		Spheres.Add(Sphere);
 	}
@@ -71,55 +78,41 @@ void FAnimNode_SimulateSlime::InitSpheres(FComponentSpacePoseContext& Input)
 
 void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseContext& Output, TArray<FBoneTransform>& OutBoneTransforms)
 {
-	const FBoneContainer& BoneContainer = Output.Pose.GetPose().GetBoneContainer();
-
-	const USkeletalMeshComponent* SkeletalMeshComp = Output.AnimInstanceProxy->GetSkelMeshComponent();
-	UWorld* World = GEngine->GetWorldFromContextObject(SkeletalMeshComp, EGetWorldErrorMode::LogAndReturnNull);
-
 	if (Spheres.Num() == 0)
 	{
 		InitSpheres(Output);
 	}
 
+	// IsValidToEvaluate()にはこの条件は入れられない。IsValidToEvaluate()はUpdateInternal()呼び出しの条件でもあるので。
+	if (DeltaTime <= KINDA_SMALL_NUMBER)
+	{
+		return;
+	}
+
+	const FBoneContainer& BoneContainer = Output.Pose.GetPose().GetBoneContainer();
+	const USkeletalMeshComponent* SkeletalMeshComp = Output.AnimInstanceProxy->GetSkelMeshComponent();
+	UWorld* World = GEngine->GetWorldFromContextObject(SkeletalMeshComp, EGetWorldErrorMode::LogAndReturnNull);
+
 	// UPhysicsAssetEditorSkeletalMeshComponent::GetPrimitiveColor()のElemSelectedColorの色をデバッガで値を調べた
 	const FColor ElemSelectedColor = FColor(222, 163, 9);
 
-	// とりあえず相互作用のイテレーションは一回
+	check(DeltaTime > KINDA_SMALL_NUMBER);
+
+	// ベルレ積分
 	for (int32 i = 0; i < Spheres.Num(); ++i)
 	{
 		FPhysicsAssetSphere& Sphere = Spheres[i];
-		check(!Sphere.BoneName.IsNone());
 
-		// 動的にボーン名からFCompactPoseBoneIndexを取得する
-		int32 BoneIndex = SkeletalMeshComp->GetBoneIndex(Sphere.BoneName);
-		Sphere.WorkBoneIndex = BoneContainer.GetCompactPoseIndexFromSkeletonIndex(BoneIndex);
+		FVector Velocity = (Sphere.WorkLocation - Sphere.WorkPrevLocation) / DeltaTime;
+		Velocity *= (1.0f - Damping);
+		Sphere.WorkPrevLocation = Sphere.WorkLocation;
+		Sphere.WorkLocation += Velocity * DeltaTime;
+	}
 
-		FTransform BoneTM = Output.Pose.GetComponentSpaceTransform(Sphere.WorkBoneIndex);
-		float Scale = BoneTM.GetScale3D().GetAbsMax();
-		FVector VectorScale(Scale);
-		BoneTM.RemoveScaling();
-
-		FTransform SphereLocalTM = Sphere.Transform;
-		SphereLocalTM.ScaleTranslation(VectorScale);
-
-		FTransform SimulateTM = SphereLocalTM * BoneTM;
-
-		float Radius = Sphere.Radius;
-
-		// UPhysicsAssetEditorSkeletalMeshComponent::RenderAssetTools()を参考にしている
-		if (bDebugDrawPhysicsAsset)
-		{
-			FFunctionGraphTask::CreateAndDispatchWhenReady(
-				[World, SimulateTM, Radius, Scale, ElemSelectedColor]() {
-					bool bPersistent = false;
-					float LifeTime = 0.0f;
-					const FColor& ShapeColor = FColor::Blue;
-
-					::DrawDebugSphere(World, SimulateTM.GetLocation(), Radius * Scale, 16, ElemSelectedColor, bPersistent, LifeTime, ESceneDepthPriorityGroup::SDPG_Foreground);
-				},
-				TStatId(), nullptr, ENamedThreads::GameThread
-			);
-		}
+	// 相互作用
+	for (int32 i = 0; i < Spheres.Num(); ++i)
+	{
+		FPhysicsAssetSphere& Sphere = Spheres[i];
 
 		for (int32 j = 0; j < Spheres.Num(); ++j)
 		{
@@ -129,29 +122,37 @@ void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 			}
 
 			FPhysicsAssetSphere& AnotherSphere = Spheres[j];
-
-			int32 AnotherBoneIndex = SkeletalMeshComp->GetBoneIndex(Sphere.BoneName);
-			AnotherSphere.WorkBoneIndex = BoneContainer.GetCompactPoseIndexFromSkeletonIndex(AnotherBoneIndex);
-
-			FTransform AnotherBoneTM = Output.Pose.GetComponentSpaceTransform(AnotherSphere.WorkBoneIndex);
-			float AnotherScale = BoneTM.GetScale3D().GetAbsMax();
-			FVector AnotherVectorScale(AnotherScale);
-			AnotherBoneTM.RemoveScaling();
-
-			FTransform AnotherSphereLocalTM = AnotherSphere.Transform;
-			AnotherSphereLocalTM.ScaleTranslation(AnotherVectorScale);
-
-			const FTransform& AnotherSimulateTM = AnotherSphereLocalTM * AnotherBoneTM;
-
-			float AnotherRadius = AnotherSphere.Radius;
+			// TODO:実装
 		}
+	}
 
-		Sphere.WorkSphereLocation = SimulateTM.GetLocation();
+	// デバッグ描画
+	if (bDebugDrawPhysicsAsset)
+	{
+		for (int32 i = 0; i < Spheres.Num(); ++i)
+		{
+			FPhysicsAssetSphere& Sphere = Spheres[i];
+			float Radius = Sphere.Radius;
+			FVector Location = Sphere.WorkLocation;
+
+			// UPhysicsAssetEditorSkeletalMeshComponent::RenderAssetTools()を参考にしている
+			FFunctionGraphTask::CreateAndDispatchWhenReady(
+				[World, Location, Radius, ElemSelectedColor]()
+				{
+					bool bPersistent = false;
+					float LifeTime = 0.0f;
+					const FColor& ShapeColor = FColor::Blue;
+
+					::DrawDebugSphere(World, Location, Radius, 16, ElemSelectedColor, bPersistent, LifeTime, ESceneDepthPriorityGroup::SDPG_Foreground);
+				},
+				TStatId(), nullptr, ENamedThreads::GameThread
+			);
+		}
 	}
 
 	for (const FPhysicsAssetSphere& Sphere : Spheres)
 	{
-		OutBoneTransforms.Add(FBoneTransform(Sphere.WorkBoneIndex, FTransform(Sphere.WorkSphereLocation)));
+		OutBoneTransforms.Add(FBoneTransform(Sphere.BoneIndex, FTransform(Sphere.WorkLocation)));
 	}
 
 	OutBoneTransforms.Sort(FCompareBoneTransformIndex());

@@ -37,6 +37,7 @@ protected:
 	// FAnimNode_SkeletalControlBase interface
 	virtual void OnInitializeAnimInstance(const struct FAnimInstanceProxy* InProxy, const class UAnimInstance* InAnimInstance) override;
 	virtual bool NeedsOnInitializeAnimInstance() const override { return true; }
+	virtual void UpdateInternal(const FAnimationUpdateContext& Context) override;
 	virtual bool IsValidToEvaluate(const class USkeleton* Skeleton, const struct FBoneContainer& RequiredBones) override;
 	virtual void EvaluateSkeletalControl_AnyThread(struct FComponentSpacePoseContext& Output, TArray<struct FBoneTransform>& OutBoneTransforms) override;
 	// End of FAnimNode_SkeletalControlBase interface
@@ -44,13 +45,11 @@ protected:
 private:
 	struct FPhysicsAssetSphere
 	{
-		FName BoneName;
-		FTransform Transform = FTransform::Identity;
+		FCompactPoseBoneIndex BoneIndex = FCompactPoseBoneIndex(INDEX_NONE);
 		float Radius = 0.0f;
 
-		FCompactPoseBoneIndex WorkBoneIndex = FCompactPoseBoneIndex(INDEX_NONE);
-		FVector WorkSphereLocation = FVector::ZeroVector;
-		FVector WorkPrevSphereLocation = FVector::ZeroVector;
+		FVector WorkLocation = FVector::ZeroVector;
+		FVector WorkPrevLocation = FVector::ZeroVector;
 	};
 
 	void InitSpheres(FComponentSpacePoseContext& Input);
@@ -59,6 +58,7 @@ private:
 	UPhysicsAsset* UsePhysicsAsset = nullptr;
 
 	TArray<FPhysicsAssetSphere> Spheres;
-	FTransform PreCompTransform;
+	FTransform PreCompTransform = FTransform::Identity;
+	float DeltaTime = 0.0f;
 };
 
