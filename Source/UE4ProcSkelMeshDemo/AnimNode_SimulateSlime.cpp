@@ -3,6 +3,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "ReferenceSkeleton.h"
 #include "DrawDebugHelpers.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 void FAnimNode_SimulateSlime::OnInitializeAnimInstance(const FAnimInstanceProxy* InProxy, const UAnimInstance* InAnimInstance)
 {
@@ -83,7 +84,7 @@ void FAnimNode_SimulateSlime::InitSpheres(FComponentSpacePoseContext& Input)
 
 void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseContext& Output, TArray<FBoneTransform>& OutBoneTransforms)
 {
-	const USkeletalMeshComponent* SkeletalMeshComp = Output.AnimInstanceProxy->GetSkelMeshComponent();
+	USkeletalMeshComponent* SkeletalMeshComp = Output.AnimInstanceProxy->GetSkelMeshComponent();
 	const FTransform& CSToWS = SkeletalMeshComp->GetComponentToWorld();
 
 	// Spheresが空なのを初期化条件として初期化
@@ -116,6 +117,7 @@ void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 
 	// Rootとの距離が半径の距離を維持する位置補正をする。
 	// コンポーネント座標に対して固定する力がないとRootからどれだけでも自由に離れてしまうので。
+	// ばねなし。
 	// 方向は制約しない。コンストレイントというよりは入力モーションによる基準位置決めなので、ベルレ積分より先にする。
 	FCompactPoseBoneIndex RootBoneIndex = RootBone.GetCompactPoseIndex(BoneContainer);
 	const FVector& RootPosePos = Output.Pose.GetComponentSpaceTransform(RootBoneIndex).GetLocation();
@@ -143,7 +145,8 @@ void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 		Sphere.WorkLocation += 0.5 * GravityCS * DeltaTime * DeltaTime;
 	}
 
-	// スフィア同士の相互作用。球が接触する距離同士になるように位置補正する
+	// スフィア同士の相互作用。球が接触する距離同士になるように位置補正する。
+	// ばねあり。
 	for (int32 i = 0; i < Spheres.Num(); ++i)
 	{
 		FPhysicsAssetSphere& Sphere = Spheres[i];
@@ -161,6 +164,30 @@ void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 			const FVector& Diff = Sphere.WorkLocation - AnotherSphere.WorkLocation;
 
 			Sphere.WorkLocation += -(Diff.Size() - TargetRadius) * Diff.GetSafeNormal() * Stiffness;
+		}
+	}
+
+	// 他のオブジェクトとのコリジョン
+	// Radius * PenetrateDepthRadiusRatioの距離になるように位置補正する。
+	// ばねあり。
+	for (FPhysicsAssetSphere& Sphere : Spheres)
+	{
+		const FVector& PosWS = CSToWS.TransformPosition(Sphere.WorkLocation);
+		bool bTraceComplex = false;
+		TArray<AActor*> ActorsToIgnore;
+		bool bIgnoreSelf = true;
+		ETraceTypeQuery TraceChannel = UEngineTypes::ConvertToTraceType(ECollisionChannel::ECC_WorldStatic);
+
+		FHitResult HitResult;
+		// クエリはスフィアのあるその場所で、直近のHitひとつのみ確認する
+		bool bHit = UKismetSystemLibrary::SphereTraceSingle(SkeletalMeshComp, PosWS, PosWS, Sphere.Radius, TraceChannel, bTraceComplex, ActorsToIgnore, EDrawDebugTrace::ForOneFrame, HitResult, bIgnoreSelf);
+		if (bHit)
+		{
+			const FVector& ImpactPosCS = CSToWS.InverseTransformPosition(HitResult.ImpactPoint);
+			const FVector& ImpactNormalCS = CSToWS.InverseTransformVector(HitResult.ImpactNormal);
+
+			const FVector& Diff = Sphere.WorkLocation - ImpactPosCS;
+			Sphere.WorkLocation += -(Diff.Size() - Sphere.Radius * PenetrateDepthRadiusRatio) * ImpactNormalCS.GetSafeNormal() * Stiffness;
 		}
 	}
 

@@ -17,32 +17,40 @@ struct UE4PROCSKELMESHDEMO_API FAnimNode_SimulateSlime : public FAnimNode_Skelet
 
 public:
 	/** Physics asset to use. If empty use the skeletal mesh's default physics asset */
-	UPROPERTY(EditAnywhere, Category = Settings)
+	UPROPERTY(EditAnywhere, Category = General)
 	UPhysicsAsset* OverridePhysicsAsset = nullptr;
 
 	/** Debug draw physics asset or not. */
-	UPROPERTY(EditAnywhere, Category = Settings)
+	UPROPERTY(EditAnywhere, Category = General)
 	bool bDebugDrawPhysicsAsset = nullptr;
 
 	/** Root bone. It`s position is determined by average of all spheres. */
-	UPROPERTY(EditAnywhere, Category = Settings)
+	UPROPERTY(EditAnywhere, Category = General)
 	FBoneReference RootBone;
 
 	/** Damping of verlet integration at component space. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (UIMin = "0", ClampMin = "0"), Category = Settings)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (UIMin = "0", ClampMin = "0"), Category = Physics)
 	float Damping = 0.1f;
 
 	/** Stiffness of distance constraint between each spheres. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (UIMin = "0", ClampMin = "0"), Category = Settings)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (UIMin = "0", ClampMin = "0"), Category = Physics)
 	float Stiffness = 0.05f;
 
 	/** Damping for linear velocity at world space. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (UIMin = "0", ClampMin = "0"), Category = Settings)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (UIMin = "0", ClampMin = "0"), Category = Physics)
 	float WorldDampingLocation = 0.8f;
 
 	/** Gravity which is producted by mass already. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (PinHiddenByDefault), Category = Settings)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (PinHiddenByDefault), Category = Physics)
 	FVector Gravity = FVector::ZeroVector;
+
+	/** Enable collision with other object or not. */
+	UPROPERTY(EditAnywhere, Category = Collision)
+	bool bEnableCollision = false;
+
+	/** Ratio of penetrate depth to radius. */
+	UPROPERTY(EditAnywhere, Meta = (EditCondition = "bEnableCollision", UIMin = "0", UIMax = "1", ClampMin = "0", ClampMax = "1"), Category = Collision)
+	float PenetrateDepthRadiusRatio = 0.5f;
 
 protected:
 	// FAnimNode_SkeletalControlBase interface
