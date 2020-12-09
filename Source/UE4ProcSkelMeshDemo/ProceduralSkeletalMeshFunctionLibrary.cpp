@@ -803,15 +803,20 @@ namespace
 			SkeletalMeshData.RefBonesBinary.Add(ChildBone);
 		}
 
-		// 頂点スキニングはRoot骨に全振り
-		SkeletalMeshData.Influences.AddUninitialized(SkeletalMeshData.Points.Num());
+		// 頂点スキニングは、ボーンの位置が動いても追従できるように、全Child骨に均等に割り振る
+		SkeletalMeshData.Influences.AddUninitialized(SkeletalMeshData.Points.Num() * 4);
+		int32 InfluenceIndex = 0;
 		for (int32 PointIdx = 0; PointIdx < SkeletalMeshData.Points.Num(); PointIdx++)
 		{
-			SkeletalMeshImportData::FRawBoneInfluence I;
-			I.Weight = 1.0f;
-			I.VertexIndex = PointIdx;
-			I.BoneIndex = 0;
-			SkeletalMeshData.Influences[PointIdx] = I;
+			for (int32 ChildIndex = 0; ChildIndex < 4; ++ChildIndex)
+			{
+				SkeletalMeshImportData::FRawBoneInfluence I;
+				I.Weight = 1.0f / 4;
+				I.VertexIndex = PointIdx;
+				I.BoneIndex = ChildIndex + 1; // Child骨は1番から
+				SkeletalMeshData.Influences[InfluenceIndex] = I;
+				InfluenceIndex++;
+			}
 		}
 
 		SkeletalMeshData.NumTexCoords = 1;
