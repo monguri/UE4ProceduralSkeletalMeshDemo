@@ -109,7 +109,9 @@ void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 		Sphere.WorkLocation += Velocity * DeltaTime;
 	}
 
-	// 相互作用
+	// 相互作用。球が接触する距離同士になるように位置補正する
+	// TODO:現在は入力ポーズが影響するのがシミュレーション開始時の位置の初期化のみなので、あとで、常に影響するようにして
+	// 個別に骨をマウスで動かしてみて挙動を確認したいな
 	for (int32 i = 0; i < Spheres.Num(); ++i)
 	{
 		FPhysicsAssetSphere& Sphere = Spheres[i];
@@ -122,7 +124,11 @@ void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 			}
 
 			FPhysicsAssetSphere& AnotherSphere = Spheres[j];
-			// TODO:実装
+
+			float TargetRadius = Sphere.Radius + AnotherSphere.Radius;
+			const FVector& Diff = Sphere.WorkLocation - AnotherSphere.WorkLocation;
+
+			Sphere.WorkLocation += -(Diff.Size() - TargetRadius) * Diff.GetSafeNormal() * Stiffness;
 		}
 	}
 
