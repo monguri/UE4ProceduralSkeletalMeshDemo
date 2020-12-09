@@ -13,15 +13,24 @@ void FAnimNode_SimulateSlime::OnInitializeAnimInstance(const FAnimInstanceProxy*
 	const FReferenceSkeleton& SkelMeshRefSkel = SkeletalMeshAsset->RefSkeleton;
 	UsePhysicsAsset = OverridePhysicsAsset ? OverridePhysicsAsset : InAnimInstance->GetSkelMeshComponent()->GetPhysicsAsset();
 
+	// 配列をリセットし、また初回Evaluateで作り直す
 	Spheres.Empty();
-	if (UsePhysicsAsset == nullptr)
-	{
-		return;
-	}
+}
+
+bool FAnimNode_SimulateSlime::IsValidToEvaluate(const class USkeleton* Skeleton, const struct FBoneContainer& RequiredBones)
+{
+	return (UsePhysicsAsset != nullptr);
+}
+
+void FAnimNode_SimulateSlime::InitSpheres(FComponentSpacePoseContext& Input)
+{
+	check(UsePhysicsAsset != nullptr);
+
+	const FBoneContainer& BoneContainer = Input.Pose.GetPose().GetBoneContainer();
+	const USkeletalMeshComponent* SkeletalMeshComp = Input.AnimInstanceProxy->GetSkelMeshComponent();
 
 	for (int32 i = 0; i < UsePhysicsAsset->SkeletalBodySetups.Num(); ++i)
 	{
-		// スケルタルメッシュ差し替えで、BoneNameに対応したBoneIndexが変わることは想定しない
 		if (UsePhysicsAsset->SkeletalBodySetups[i]->BoneName.IsNone())
 		{
 			continue;
@@ -34,13 +43,30 @@ void FAnimNode_SimulateSlime::OnInitializeAnimInstance(const FAnimInstanceProxy*
 
 		// 一本の骨ごとに一個のスフィアしか想定しない。また、スフィア以外は考えない。物理アセットのデータが動的に書き換わることも想定しない。
 		const FKSphereElem& SphereElem = UsePhysicsAsset->SkeletalBodySetups[i]->AggGeom.SphereElems[0]; 
-		Spheres.Emplace(UsePhysicsAsset->SkeletalBodySetups[i]->BoneName, SphereElem.GetTransform(), SphereElem.Radius);
-	}
-}
 
-bool FAnimNode_SimulateSlime::IsValidToEvaluate(const class USkeleton* Skeleton, const struct FBoneContainer& RequiredBones)
-{
-	return (UsePhysicsAsset != nullptr);
+		FPhysicsAssetSphere Sphere;
+		Sphere.BoneName = UsePhysicsAsset->SkeletalBodySetups[i]->BoneName;
+		Sphere.Transform = SphereElem.GetTransform();
+		Sphere.Radius = SphereElem.Radius;
+
+		int32 BoneIndex = SkeletalMeshComp->GetBoneIndex(Sphere.BoneName);
+		Sphere.WorkBoneIndex = BoneContainer.GetCompactPoseIndexFromSkeletonIndex(BoneIndex);
+
+		FTransform BoneTM = Input.Pose.GetComponentSpaceTransform(Sphere.WorkBoneIndex);
+		float Scale = BoneTM.GetScale3D().GetAbsMax();
+		FVector VectorScale(Scale);
+		BoneTM.RemoveScaling();
+
+		FTransform SphereLocalTM = Sphere.Transform;
+		SphereLocalTM.ScaleTranslation(VectorScale);
+
+		FTransform SimulateTM = SphereLocalTM * BoneTM;
+
+		Sphere.WorkSphereLocation = SimulateTM.GetLocation();
+		Sphere.WorkPrevSphereLocation = SimulateTM.GetLocation();
+
+		Spheres.Add(Sphere);
+	}
 }
 
 void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseContext& Output, TArray<FBoneTransform>& OutBoneTransforms)
@@ -49,6 +75,11 @@ void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 
 	const USkeletalMeshComponent* SkeletalMeshComp = Output.AnimInstanceProxy->GetSkelMeshComponent();
 	UWorld* World = GEngine->GetWorldFromContextObject(SkeletalMeshComp, EGetWorldErrorMode::LogAndReturnNull);
+
+	if (Spheres.Num() == 0)
+	{
+		InitSpheres(Output);
+	}
 
 	// UPhysicsAssetEditorSkeletalMeshComponent::GetPrimitiveColor()のElemSelectedColorの色をデバッガで値を調べた
 	const FColor ElemSelectedColor = FColor(222, 163, 9);
@@ -115,12 +146,12 @@ void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 			float AnotherRadius = AnotherSphere.Radius;
 		}
 
-		Sphere.WorkBoneTransform = SimulateTM;
+		Sphere.WorkSphereLocation = SimulateTM.GetLocation();
 	}
 
 	for (const FPhysicsAssetSphere& Sphere : Spheres)
 	{
-		OutBoneTransforms.Add(FBoneTransform(Sphere.WorkBoneIndex, Sphere.WorkBoneTransform));
+		OutBoneTransforms.Add(FBoneTransform(Sphere.WorkBoneIndex, FTransform(Sphere.WorkSphereLocation)));
 	}
 
 	OutBoneTransforms.Sort(FCompareBoneTransformIndex());

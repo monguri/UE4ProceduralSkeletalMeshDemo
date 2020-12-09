@@ -24,6 +24,15 @@ public:
 	UPROPERTY(EditAnywhere, Category = Settings)
 	bool bDebugDrawPhysicsAsset = nullptr;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (UIMin = "0", ClampMin = "0"), Category = Settings)
+	float Damping = 0.1f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (UIMin = "0", ClampMin = "0"), Category = Settings)
+	float WorldDampingLocation = 0.8f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (UIMin = "0", ClampMin = "0"), Category = Settings)
+	float WorldDampingRotation = 0.8f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (UIMin = "0", ClampMin = "0"), Category = Settings)
+	float Stiffness = 0.05f;
+
 protected:
 	// FAnimNode_SkeletalControlBase interface
 	virtual void OnInitializeAnimInstance(const struct FAnimInstanceProxy* InProxy, const class UAnimInstance* InAnimInstance) override;
@@ -37,16 +46,19 @@ private:
 	{
 		FName BoneName;
 		FTransform Transform = FTransform::Identity;
-		float Radius;
-		FPhysicsAssetSphere(FName _BoneName, const FTransform& _Transform, float _Radius) : BoneName(_BoneName), Transform(_Transform), Radius(_Radius) {}
+		float Radius = 0.0f;
 
 		FCompactPoseBoneIndex WorkBoneIndex = FCompactPoseBoneIndex(INDEX_NONE);
-		FTransform WorkBoneTransform = FTransform::Identity;
+		FVector WorkSphereLocation = FVector::ZeroVector;
+		FVector WorkPrevSphereLocation = FVector::ZeroVector;
 	};
+
+	void InitSpheres(FComponentSpacePoseContext& Input);
 
 	UPROPERTY(Transient)
 	UPhysicsAsset* UsePhysicsAsset = nullptr;
 
 	TArray<FPhysicsAssetSphere> Spheres;
+	FTransform PreCompTransform;
 };
 
