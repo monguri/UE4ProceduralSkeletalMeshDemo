@@ -114,6 +114,17 @@ void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 
 	check(DeltaTime > KINDA_SMALL_NUMBER);
 
+	// Rootとの距離が半径の距離を維持する位置補正をする。
+	// コンポーネント座標に対して固定する力がないとRootからどれだけでも自由に離れてしまうので。
+	// 方向は制約しない。コンストレイントというよりは入力モーションによる基準位置決めなので、ベルレ積分より先にする。
+	FCompactPoseBoneIndex RootBoneIndex = RootBone.GetCompactPoseIndex(BoneContainer);
+	const FVector& RootPosePos = Output.Pose.GetComponentSpaceTransform(RootBoneIndex).GetLocation();
+	for (FPhysicsAssetSphere& Sphere : Spheres)
+	{
+		const FVector& Diff = Sphere.WorkLocation - RootPosePos;
+		Sphere.WorkLocation += -(Diff.Size() - Sphere.Radius) * Diff.GetSafeNormal();
+	}
+
 	// ワールド座標での移動の、コンポーネント座標への反映項の計算
 	const FVector& ComponentMove = CSToWS.InverseTransformPosition(PreCSToWS.GetLocation());
 	PreCSToWS = CSToWS;
@@ -128,7 +139,7 @@ void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 		Sphere.WorkLocation += ComponentMove * (1.0f - WorldDampingLocation);
 	}
 
-	// 相互作用。球が接触する距離同士になるように位置補正する
+	// スフィア同士の相互作用。球が接触する距離同士になるように位置補正する
 	// TODO:現在は入力ポーズが影響するのがシミュレーション開始時の位置の初期化のみなので、あとで、常に影響するようにして
 	// 個別に骨をマウスで動かしてみて挙動を確認したいな
 	for (int32 i = 0; i < Spheres.Num(); ++i)
@@ -150,18 +161,6 @@ void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 			Sphere.WorkLocation += -(Diff.Size() - TargetRadius) * Diff.GetSafeNormal() * Stiffness;
 		}
 	}
-
-	// RootBoneの位置は全スフィアの平均位置にする
-	FVector RootBonePos = FVector::ZeroVector;
-	for (int32 i = 0; i < Spheres.Num(); ++i)
-	{
-		FPhysicsAssetSphere& Sphere = Spheres[i];
-		RootBonePos += Sphere.WorkLocation;
-	}
-	RootBonePos /= Spheres.Num();
-
-	// 骨のポーズの出力
-	OutBoneTransforms.Add(FBoneTransform(RootBone.GetCompactPoseIndex(BoneContainer), FTransform(RootBonePos)));
 
 	for (const FPhysicsAssetSphere& Sphere : Spheres)
 	{
