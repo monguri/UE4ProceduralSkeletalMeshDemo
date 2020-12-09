@@ -40,6 +40,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (UIMin = "0", ClampMin = "0"), Category = Settings)
 	float WorldDampingLocation = 0.8f;
 
+	/** Gravity which is producted by mass already. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (PinHiddenByDefault), Category = Settings)
+	FVector Gravity = FVector::ZeroVector;
+
 protected:
 	// FAnimNode_SkeletalControlBase interface
 	virtual void OnInitializeAnimInstance(const struct FAnimInstanceProxy* InProxy, const class UAnimInstance* InAnimInstance) override;

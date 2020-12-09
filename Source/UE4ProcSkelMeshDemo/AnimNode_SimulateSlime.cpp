@@ -129,6 +129,9 @@ void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 	const FVector& ComponentMove = CSToWS.InverseTransformPosition(PreCSToWS.GetLocation());
 	PreCSToWS = CSToWS;
 
+	// コンポーネントスペースでの重力*質量のベクトル
+	const FVector& GravityCS = CSToWS.InverseTransformVector(Gravity);
+
 	// ベルレ積分
 	for (FPhysicsAssetSphere& Sphere : Spheres)
 	{
@@ -137,11 +140,10 @@ void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 		Sphere.WorkPrevLocation = Sphere.WorkLocation;
 		Sphere.WorkLocation += Velocity * DeltaTime;
 		Sphere.WorkLocation += ComponentMove * (1.0f - WorldDampingLocation);
+		Sphere.WorkLocation += 0.5 * GravityCS * DeltaTime * DeltaTime;
 	}
 
 	// スフィア同士の相互作用。球が接触する距離同士になるように位置補正する
-	// TODO:現在は入力ポーズが影響するのがシミュレーション開始時の位置の初期化のみなので、あとで、常に影響するようにして
-	// 個別に骨をマウスで動かしてみて挙動を確認したいな
 	for (int32 i = 0; i < Spheres.Num(); ++i)
 	{
 		FPhysicsAssetSphere& Sphere = Spheres[i];
