@@ -309,15 +309,15 @@ namespace
 	// 底面の中心が原点の立方体メッシュを作る
 	void MakeBoxMeshData(float EdgeLength,  FSkeletalMeshImportData& SkeletalMeshData)
 	{
-		SkeletalMeshData.Points.Emplace(-EdgeLength / 2, EdgeLength / 2, EdgeLength);
-		SkeletalMeshData.Points.Emplace(EdgeLength / 2, EdgeLength / 2, EdgeLength);
-		SkeletalMeshData.Points.Emplace(-EdgeLength / 2, -EdgeLength / 2, EdgeLength);
-		SkeletalMeshData.Points.Emplace(EdgeLength / 2, -EdgeLength / 2, EdgeLength);
+		SkeletalMeshData.Points.Emplace(-EdgeLength / 2, EdgeLength / 2, EdgeLength / 2);
+		SkeletalMeshData.Points.Emplace(EdgeLength / 2, EdgeLength / 2, EdgeLength / 2);
+		SkeletalMeshData.Points.Emplace(-EdgeLength / 2, -EdgeLength / 2, EdgeLength / 2);
+		SkeletalMeshData.Points.Emplace(EdgeLength / 2, -EdgeLength / 2, EdgeLength / 2);
 
-		SkeletalMeshData.Points.Emplace(-EdgeLength / 2, EdgeLength / 2, 0.0f);
-		SkeletalMeshData.Points.Emplace(EdgeLength / 2, EdgeLength / 2, 0.0f);
-		SkeletalMeshData.Points.Emplace(-EdgeLength / 2, -EdgeLength / 2, 0.0f);
-		SkeletalMeshData.Points.Emplace(EdgeLength / 2, -EdgeLength / 2, 0.0f);
+		SkeletalMeshData.Points.Emplace(-EdgeLength / 2, EdgeLength / 2, -EdgeLength / 2);
+		SkeletalMeshData.Points.Emplace(EdgeLength / 2, EdgeLength / 2, -EdgeLength / 2);
+		SkeletalMeshData.Points.Emplace(-EdgeLength / 2, -EdgeLength / 2, -EdgeLength / 2);
+		SkeletalMeshData.Points.Emplace(EdgeLength / 2, -EdgeLength / 2, -EdgeLength / 2);
 
 		const float OneThird = 1.0f / 3.0f;
 		const float OneFourth = 0.25f;
@@ -689,7 +689,7 @@ namespace
 			const FVector& CenterPos = FVector(
 				-(NUM_BONE_ONE_AXIS - 1) * RADIUS + (ChildIndex % NUM_BONE_ONE_AXIS) * 2 * RADIUS,
 				-(NUM_BONE_ONE_AXIS - 1) * RADIUS + (ChildIndex % (NUM_BONE_ONE_AXIS * NUM_BONE_ONE_AXIS) / NUM_BONE_ONE_AXIS) * 2 * RADIUS,
-				RADIUS + ChildIndex / (NUM_BONE_ONE_AXIS * NUM_BONE_ONE_AXIS) * 2 * RADIUS
+				RADIUS + ChildIndex / (NUM_BONE_ONE_AXIS * NUM_BONE_ONE_AXIS) * 2 * RADIUS - RADIUS * NUM_BONE_ONE_AXIS
 			);
 
 			SkeletalMeshImportData::FJointPos ChildJointPos;
@@ -763,22 +763,22 @@ namespace
 			FVector(
 				0.0f,
 				RADIUS * Cos,
-				4 * RADIUS - RADIUS * Sin
+				-RADIUS * Sin
 			),
 			FVector(
 				RADIUS * Cos * Cos,
 				-RADIUS * Cos * Sin,
-				4 * RADIUS - RADIUS * Sin
+				-RADIUS * Sin
 			),
 			FVector(
 				-RADIUS * Cos * Cos,
 				-RADIUS * Cos * Sin,
-				4 * RADIUS - RADIUS * Sin
+				-RADIUS * Sin
 			),
 			FVector(
 				0.0f,
 				0.0f,
-				5 * RADIUS
+				RADIUS
 			)
 		};
 
