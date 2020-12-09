@@ -17,6 +17,11 @@ void FAnimNode_SimulateSlime::OnInitializeAnimInstance(const FAnimInstanceProxy*
 	Spheres.Empty();
 }
 
+void FAnimNode_SimulateSlime::InitializeBoneReferences(const FBoneContainer& RequiredBones)
+{
+	RootBone.Initialize(RequiredBones);
+}
+
 void FAnimNode_SimulateSlime::UpdateInternal(const FAnimationUpdateContext& Context)
 {
 	FAnimNode_SkeletalControlBase::UpdateInternal(Context);
@@ -26,7 +31,7 @@ void FAnimNode_SimulateSlime::UpdateInternal(const FAnimationUpdateContext& Cont
 
 bool FAnimNode_SimulateSlime::IsValidToEvaluate(const class USkeleton* Skeleton, const struct FBoneContainer& RequiredBones)
 {
-	return (UsePhysicsAsset != nullptr);
+	return (UsePhysicsAsset != nullptr && RootBone.IsValidToEvaluate(RequiredBones));
 }
 
 void FAnimNode_SimulateSlime::InitSpheres(FComponentSpacePoseContext& Input)
@@ -78,9 +83,21 @@ void FAnimNode_SimulateSlime::InitSpheres(FComponentSpacePoseContext& Input)
 
 void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseContext& Output, TArray<FBoneTransform>& OutBoneTransforms)
 {
+	const USkeletalMeshComponent* SkeletalMeshComp = Output.AnimInstanceProxy->GetSkelMeshComponent();
+	const FTransform& CSToWS = SkeletalMeshComp->GetComponentToWorld();
+
+	// Spheresが空なのを初期化条件として初期化
 	if (Spheres.Num() == 0)
 	{
 		InitSpheres(Output);
+		
+		// 物理アセットに有効な情報がなくて配列が作られなければ処理しない
+		if (Spheres.Num() == 0)
+		{
+			return;
+		}
+
+		PreCSToWS = CSToWS;
 	}
 
 	// IsValidToEvaluate()にはこの条件は入れられない。IsValidToEvaluate()はUpdateInternal()呼び出しの条件でもあるので。
@@ -90,7 +107,6 @@ void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 	}
 
 	const FBoneContainer& BoneContainer = Output.Pose.GetPose().GetBoneContainer();
-	const USkeletalMeshComponent* SkeletalMeshComp = Output.AnimInstanceProxy->GetSkelMeshComponent();
 	UWorld* World = GEngine->GetWorldFromContextObject(SkeletalMeshComp, EGetWorldErrorMode::LogAndReturnNull);
 
 	// UPhysicsAssetEditorSkeletalMeshComponent::GetPrimitiveColor()のElemSelectedColorの色をデバッガで値を調べた
@@ -98,15 +114,18 @@ void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 
 	check(DeltaTime > KINDA_SMALL_NUMBER);
 
-	// ベルレ積分
-	for (int32 i = 0; i < Spheres.Num(); ++i)
-	{
-		FPhysicsAssetSphere& Sphere = Spheres[i];
+	// ワールド座標での移動の、コンポーネント座標への反映項の計算
+	const FVector& ComponentMove = CSToWS.InverseTransformPosition(PreCSToWS.GetLocation());
+	PreCSToWS = CSToWS;
 
+	// ベルレ積分
+	for (FPhysicsAssetSphere& Sphere : Spheres)
+	{
 		FVector Velocity = (Sphere.WorkLocation - Sphere.WorkPrevLocation) / DeltaTime;
 		Velocity *= (1.0f - Damping);
 		Sphere.WorkPrevLocation = Sphere.WorkLocation;
 		Sphere.WorkLocation += Velocity * DeltaTime;
+		Sphere.WorkLocation += ComponentMove * (1.0f - WorldDampingLocation);
 	}
 
 	// 相互作用。球が接触する距離同士になるように位置補正する
@@ -132,29 +151,17 @@ void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 		}
 	}
 
-	// デバッグ描画
-	if (bDebugDrawPhysicsAsset)
+	// RootBoneの位置は全スフィアの平均位置にする
+	FVector RootBonePos = FVector::ZeroVector;
+	for (int32 i = 0; i < Spheres.Num(); ++i)
 	{
-		for (int32 i = 0; i < Spheres.Num(); ++i)
-		{
-			FPhysicsAssetSphere& Sphere = Spheres[i];
-			float Radius = Sphere.Radius;
-			FVector Location = Sphere.WorkLocation;
-
-			// UPhysicsAssetEditorSkeletalMeshComponent::RenderAssetTools()を参考にしている
-			FFunctionGraphTask::CreateAndDispatchWhenReady(
-				[World, Location, Radius, ElemSelectedColor]()
-				{
-					bool bPersistent = false;
-					float LifeTime = 0.0f;
-					const FColor& ShapeColor = FColor::Blue;
-
-					::DrawDebugSphere(World, Location, Radius, 16, ElemSelectedColor, bPersistent, LifeTime, ESceneDepthPriorityGroup::SDPG_Foreground);
-				},
-				TStatId(), nullptr, ENamedThreads::GameThread
-			);
-		}
+		FPhysicsAssetSphere& Sphere = Spheres[i];
+		RootBonePos += Sphere.WorkLocation;
 	}
+	RootBonePos /= Spheres.Num();
+
+	// 骨のポーズの出力
+	OutBoneTransforms.Add(FBoneTransform(RootBone.GetCompactPoseIndex(BoneContainer), FTransform(RootBonePos)));
 
 	for (const FPhysicsAssetSphere& Sphere : Spheres)
 	{
@@ -162,5 +169,28 @@ void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 	}
 
 	OutBoneTransforms.Sort(FCompareBoneTransformIndex());
+
+	// デバッグ描画
+	if (bDebugDrawPhysicsAsset)
+	{
+		for (const FPhysicsAssetSphere& Sphere : Spheres)
+		{
+			float Radius = Sphere.Radius;
+			FVector LocationWS = CSToWS.TransformPosition(Sphere.WorkLocation);
+
+			// UPhysicsAssetEditorSkeletalMeshComponent::RenderAssetTools()を参考にしている
+			FFunctionGraphTask::CreateAndDispatchWhenReady(
+				[World, LocationWS, Radius, ElemSelectedColor]()
+				{
+					bool bPersistent = false;
+					float LifeTime = 0.0f;
+					const FColor& ShapeColor = FColor::Blue;
+
+					::DrawDebugSphere(World, LocationWS, Radius, 16, ElemSelectedColor, bPersistent, LifeTime, ESceneDepthPriorityGroup::SDPG_Foreground);
+				},
+				TStatId(), nullptr, ENamedThreads::GameThread
+			);
+		}
+	}
 }
 

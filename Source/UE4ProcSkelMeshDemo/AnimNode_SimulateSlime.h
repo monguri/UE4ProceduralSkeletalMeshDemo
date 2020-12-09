@@ -24,18 +24,26 @@ public:
 	UPROPERTY(EditAnywhere, Category = Settings)
 	bool bDebugDrawPhysicsAsset = nullptr;
 
+	/** Root bone. It`s position is determined by average of all spheres. */
+	UPROPERTY(EditAnywhere, Category = Settings)
+	FBoneReference RootBone;
+
+	/** Damping of verlet integration at component space. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (UIMin = "0", ClampMin = "0"), Category = Settings)
 	float Damping = 0.1f;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (UIMin = "0", ClampMin = "0"), Category = Settings)
-	float WorldDampingLocation = 0.8f;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (UIMin = "0", ClampMin = "0"), Category = Settings)
-	float WorldDampingRotation = 0.8f;
+
+	/** Stiffness of distance constraint between each spheres. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (UIMin = "0", ClampMin = "0"), Category = Settings)
 	float Stiffness = 0.05f;
+
+	/** Damping for linear velocity at world space. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (UIMin = "0", ClampMin = "0"), Category = Settings)
+	float WorldDampingLocation = 0.8f;
 
 protected:
 	// FAnimNode_SkeletalControlBase interface
 	virtual void OnInitializeAnimInstance(const struct FAnimInstanceProxy* InProxy, const class UAnimInstance* InAnimInstance) override;
+	void InitializeBoneReferences(const FBoneContainer& RequiredBones);
 	virtual bool NeedsOnInitializeAnimInstance() const override { return true; }
 	virtual void UpdateInternal(const FAnimationUpdateContext& Context) override;
 	virtual bool IsValidToEvaluate(const class USkeleton* Skeleton, const struct FBoneContainer& RequiredBones) override;
@@ -58,7 +66,7 @@ private:
 	UPhysicsAsset* UsePhysicsAsset = nullptr;
 
 	TArray<FPhysicsAssetSphere> Spheres;
-	FTransform PreCompTransform = FTransform::Identity;
+	FTransform PreCSToWS = FTransform::Identity;
 	float DeltaTime = 0.0f;
 };
 
