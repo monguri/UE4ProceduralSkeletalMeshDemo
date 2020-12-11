@@ -185,7 +185,7 @@ void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 		if (bHit)
 		{
 			const FVector& ImpactPosCS = CSToWS.InverseTransformPosition(HitResult.ImpactPoint);
-			const FVector& ImpactNormalCS = CSToWS.InverseTransformVector(HitResult.ImpactNormal);
+			const FVector& ImpactNormalCS = CSToWS.InverseTransformVector(HitResult.ImpactNormal).GetSafeNormal();
 
 			// UKismetSystemLibrary::SphereTraceSingle()であってもスフィアとポリゴンとのコリジョンでは、
 			// スフィアの中心との最近接点がImpactPointとされるようだ。つまりスフィア中心点からポリゴンに
