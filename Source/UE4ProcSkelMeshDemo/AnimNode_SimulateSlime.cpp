@@ -180,14 +180,24 @@ void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 
 		FHitResult HitResult;
 		// クエリはスフィアのあるその場所で、直近のHitひとつのみ確認する
-		bool bHit = UKismetSystemLibrary::SphereTraceSingle(SkeletalMeshComp, PosWS, PosWS, Sphere.Radius, TraceChannel, bTraceComplex, ActorsToIgnore, EDrawDebugTrace::ForOneFrame, HitResult, bIgnoreSelf);
+		// TODO:デバッグ描画はワーカスレッドではできないので、一旦はずしておく
+		bool bHit = UKismetSystemLibrary::SphereTraceSingle(SkeletalMeshComp, PosWS, PosWS, Sphere.Radius, TraceChannel, bTraceComplex, ActorsToIgnore, EDrawDebugTrace::None, HitResult, bIgnoreSelf);
 		if (bHit)
 		{
 			const FVector& ImpactPosCS = CSToWS.InverseTransformPosition(HitResult.ImpactPoint);
 			const FVector& ImpactNormalCS = CSToWS.InverseTransformVector(HitResult.ImpactNormal);
 
-			const FVector& Diff = Sphere.WorkLocation - ImpactPosCS;
-			Sphere.WorkLocation += -(Diff.Size() - Sphere.Radius * PenetrateDepthRadiusRatio) * ImpactNormalCS.GetSafeNormal() * Stiffness;
+			// UKismetSystemLibrary::SphereTraceSingle()であってもスフィアとポリゴンとのコリジョンでは、
+			// スフィアの中心との最近接点がImpactPointとされるようだ。つまりスフィア中心点からポリゴンに
+			// ひいた垂線の交点
+			float OverPenetrateDistance = Sphere.Radius * PenetrateDepthRadiusRatio - ((Sphere.WorkLocation - ImpactPosCS) | ImpactNormalCS); // DotProductにすることで、中心さえもめりこんだケースでも対応する
+			if (OverPenetrateDistance > 0.0f)
+			{
+				// TODO: Stiffnessで押し出しをすると、押し出しが小さすぎて重力影響の方がおおきく負けてしまう
+				// とりあえず押し出しだけにしておく
+				//Sphere.WorkLocation += OverPenetrateDistance * ImpactNormalCS * Stiffness;
+				Sphere.WorkLocation += OverPenetrateDistance * ImpactNormalCS;
+			}
 		}
 	}
 
