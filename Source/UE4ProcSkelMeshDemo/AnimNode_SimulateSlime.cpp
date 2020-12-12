@@ -3,7 +3,6 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "ReferenceSkeleton.h"
 #include "DrawDebugHelpers.h"
-#include "Kismet/KismetSystemLibrary.h"
 
 void FAnimNode_SimulateSlime::OnInitializeAnimInstance(const FAnimInstanceProxy* InProxy, const UAnimInstance* InAnimInstance)
 {
@@ -79,6 +78,40 @@ void FAnimNode_SimulateSlime::InitSpheres(FComponentSpacePoseContext& Input)
 		Sphere.WorkPrevLocation = Sphere.WorkLocation;
 
 		Spheres.Add(Sphere);
+	}
+}
+
+namespace
+{
+	// KismetTraceUtils.cppのDebugDrawSweptSphere()を参考にしている
+	void DebugDrawSweptSphere(const UWorld* InWorld, FVector const& Start, FVector const& End, float Radius, FColor const& Color, bool bPersistentLines, float LifeTime, uint8 DepthPriority)
+	{
+		FVector const TraceVec = End - Start;
+		float const Dist = TraceVec.Size();
+
+		FVector const Center = Start + TraceVec * 0.5f;
+		float const HalfHeight = (Dist * 0.5f) + Radius;
+
+		FQuat const CapsuleRot = FRotationMatrix::MakeFromZ(TraceVec).ToQuat();
+		::DrawDebugCapsule(InWorld, Center, HalfHeight, Radius, CapsuleRot, Color, bPersistentLines, LifeTime, DepthPriority);
+	}
+
+	// KismetTraceUtils.cppのDrawDebugSphereTraceSingle()を参考にしている
+	void DebugDrawSphereTraceSingle(const UWorld* World, const FVector& Start, const FVector& End, float Radius, bool bHit, const FHitResult& OutHit, FLinearColor TraceColor, FLinearColor TraceHitColor)
+	{
+		bool bPersistent = false;
+		float LifeTime = 0.0f;
+
+		if (bHit && OutHit.bBlockingHit)
+		{
+			::DebugDrawSweptSphere(World, Start, OutHit.Location, Radius, TraceColor.ToFColor(true), bPersistent, LifeTime, ESceneDepthPriorityGroup::SDPG_Foreground);
+			::DebugDrawSweptSphere(World, OutHit.Location, End, Radius, TraceHitColor.ToFColor(true), bPersistent, LifeTime, ESceneDepthPriorityGroup::SDPG_Foreground);
+			::DrawDebugPoint(World, OutHit.ImpactPoint, 16.0f, TraceColor.ToFColor(true), bPersistent, LifeTime, ESceneDepthPriorityGroup::SDPG_Foreground);
+		}
+		else
+		{
+			::DebugDrawSweptSphere(World, Start, End, Radius, TraceColor.ToFColor(true), bPersistent, LifeTime, ESceneDepthPriorityGroup::SDPG_Foreground);
+		}
 	}
 }
 
@@ -174,14 +207,18 @@ void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 	{
 		const FVector& PosWS = CSToWS.TransformPosition(Sphere.WorkLocation);
 		bool bTraceComplex = false;
-		TArray<AActor*> ActorsToIgnore;
-		bool bIgnoreSelf = true;
-		ETraceTypeQuery TraceChannel = UEngineTypes::ConvertToTraceType(ECollisionChannel::ECC_WorldStatic);
 
 		FHitResult HitResult;
+
+		// KismetTraceUtils.cppのConfigureCollisionParams()を参考にしている
+		static const FName SphereTraceSingleName(TEXT("SphereTraceSingle"));
+		FCollisionQueryParams Params(SphereTraceSingleName, TStatId(), bTraceComplex);
+		Params.bReturnPhysicalMaterial = true;
+		Params.bReturnFaceIndex = false;
+		Params.AddIgnoredComponent(SkeletalMeshComp);
+
 		// クエリはスフィアのあるその場所で、直近のHitひとつのみ確認する
-		// TODO:デバッグ描画はワーカスレッドではできないので、一旦はずしておく
-		bool bHit = UKismetSystemLibrary::SphereTraceSingle(SkeletalMeshComp, PosWS, PosWS, Sphere.Radius, TraceChannel, bTraceComplex, ActorsToIgnore, EDrawDebugTrace::None, HitResult, bIgnoreSelf);
+		bool bHit = World->SweepSingleByChannel(HitResult, PosWS, PosWS, FQuat::Identity, ECollisionChannel::ECC_WorldStatic, FCollisionShape::MakeSphere(Sphere.Radius), Params);
 		if (bHit)
 		{
 			const FVector& ImpactPosCS = CSToWS.InverseTransformPosition(HitResult.ImpactPoint);
@@ -198,6 +235,25 @@ void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 				//Sphere.WorkLocation += OverPenetrateDistance * ImpactNormalCS * Stiffness;
 				Sphere.WorkLocation += OverPenetrateDistance * ImpactNormalCS;
 			}
+		}
+
+		if (bDebugDrawCollisionQuery)
+		{
+			float Radius = Sphere.Radius;
+
+			FFunctionGraphTask::CreateAndDispatchWhenReady(
+				[World, PosWS, Radius, bHit, HitResult]()
+				{
+					bool bPersistent = false;
+					float LifeTime = 0.0f;
+					const FColor& ShapeColor = FColor::Blue;
+					const FLinearColor& TraceColor = FLinearColor::Red;
+					const FLinearColor& TraceHitColor = FLinearColor::Green;
+
+					DebugDrawSphereTraceSingle(World, PosWS, PosWS, Radius, bHit, HitResult, TraceColor, TraceHitColor);
+				},
+				TStatId(), nullptr, ENamedThreads::GameThread
+			);
 		}
 	}
 

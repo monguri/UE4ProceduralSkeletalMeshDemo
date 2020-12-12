@@ -22,7 +22,11 @@ public:
 
 	/** Debug draw physics asset or not. */
 	UPROPERTY(EditAnywhere, Category = General)
-	bool bDebugDrawPhysicsAsset = nullptr;
+	bool bDebugDrawPhysicsAsset = false;
+
+	/** Debug draw collision query. */
+	UPROPERTY(EditAnywhere, Category = General)
+	bool bDebugDrawCollisionQuery = false;
 
 	/** Root bone. It`s position is determined by average of all spheres. */
 	UPROPERTY(EditAnywhere, Category = General)
