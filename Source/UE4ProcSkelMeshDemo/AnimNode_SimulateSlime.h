@@ -81,6 +81,9 @@ private:
 	UPROPERTY(Transient)
 	UPhysicsAsset* UsePhysicsAsset = nullptr;
 
+	UPROPERTY(Transient)
+	AActor* OwnerActor = nullptr;
+
 	TArray<FPhysicsAssetSphere> Spheres;
 	FTransform PreCSToWS = FTransform::Identity;
 	float DeltaTime = 0.0f;

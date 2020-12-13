@@ -7,7 +7,7 @@
 void FAnimNode_SimulateSlime::OnInitializeAnimInstance(const FAnimInstanceProxy* InProxy, const UAnimInstance* InAnimInstance)
 {
 	// FAnimNode_RigidBody::OnInitializeAnimInstance()を参考にしている
-	const USkeletalMeshComponent* SkeletalMeshComp = InAnimInstance->GetSkelMeshComponent();
+	USkeletalMeshComponent* SkeletalMeshComp = InAnimInstance->GetSkelMeshComponent();
 	const USkeletalMesh* SkeletalMeshAsset = SkeletalMeshComp->SkeletalMesh;
 
 	const FReferenceSkeleton& SkelMeshRefSkel = SkeletalMeshAsset->RefSkeleton;
@@ -15,6 +15,20 @@ void FAnimNode_SimulateSlime::OnInitializeAnimInstance(const FAnimInstanceProxy*
 
 	// 配列をリセットし、また初回Evaluateで作り直す
 	Spheres.Empty();
+
+	OwnerActor = nullptr;
+
+	// オーナーのアクタをルートに登って行って探す
+	UObject* CurrentObject = SkeletalMeshComp;
+	while (CurrentObject)
+	{
+		CurrentObject = CurrentObject->GetOuter();
+		OwnerActor = Cast<AActor>(CurrentObject);
+		if (OwnerActor != nullptr)
+		{
+			break;
+		}
+	}
 }
 
 void FAnimNode_SimulateSlime::InitializeBoneReferences(const FBoneContainer& RequiredBones)
@@ -218,6 +232,10 @@ void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 			Params.bReturnPhysicalMaterial = true;
 			Params.bReturnFaceIndex = false;
 			Params.AddIgnoredComponent(SkeletalMeshComp);
+			if (OwnerActor != nullptr)
+			{
+				Params.AddIgnoredActor(OwnerActor);
+			}
 
 			// クエリはスフィアのあるその場所で、直近のHitひとつのみ確認する
 			bool bHit = World->SweepSingleByChannel(HitResult, PosWS, PosWS, FQuat::Identity, ECollisionChannel::ECC_WorldStatic, FCollisionShape::MakeSphere(Sphere.Radius), Params);
