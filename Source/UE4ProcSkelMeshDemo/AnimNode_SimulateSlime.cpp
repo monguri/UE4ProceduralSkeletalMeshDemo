@@ -203,57 +203,60 @@ void FAnimNode_SimulateSlime::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 	// 他のオブジェクトとのコリジョン
 	// Radius * PenetrateDepthRadiusRatioの距離になるように位置補正する。
 	// ばねあり。
-	for (FPhysicsAssetSphere& Sphere : Spheres)
+	if (bEnableCollision)
 	{
-		const FVector& PosWS = CSToWS.TransformPosition(Sphere.WorkLocation);
-		bool bTraceComplex = false;
-
-		FHitResult HitResult;
-
-		// KismetTraceUtils.cppのConfigureCollisionParams()を参考にしている
-		static const FName SphereTraceSingleName(TEXT("SphereTraceSingle"));
-		FCollisionQueryParams Params(SphereTraceSingleName, TStatId(), bTraceComplex);
-		Params.bReturnPhysicalMaterial = true;
-		Params.bReturnFaceIndex = false;
-		Params.AddIgnoredComponent(SkeletalMeshComp);
-
-		// クエリはスフィアのあるその場所で、直近のHitひとつのみ確認する
-		bool bHit = World->SweepSingleByChannel(HitResult, PosWS, PosWS, FQuat::Identity, ECollisionChannel::ECC_WorldStatic, FCollisionShape::MakeSphere(Sphere.Radius), Params);
-		if (bHit)
+		for (FPhysicsAssetSphere& Sphere : Spheres)
 		{
-			const FVector& ImpactPosCS = CSToWS.InverseTransformPosition(HitResult.ImpactPoint);
-			const FVector& ImpactNormalCS = CSToWS.InverseTransformVector(HitResult.ImpactNormal).GetSafeNormal();
+			const FVector& PosWS = CSToWS.TransformPosition(Sphere.WorkLocation);
+			bool bTraceComplex = false;
 
-			// UKismetSystemLibrary::SphereTraceSingle()であってもスフィアとポリゴンとのコリジョンでは、
-			// スフィアの中心との最近接点がImpactPointとされるようだ。つまりスフィア中心点からポリゴンに
-			// ひいた垂線の交点
-			float OverPenetrateDistance = Sphere.Radius * PenetrateDepthRadiusRatio - ((Sphere.WorkLocation - ImpactPosCS) | ImpactNormalCS); // DotProductにすることで、中心さえもめりこんだケースでも対応する
-			if (OverPenetrateDistance > 0.0f)
+			FHitResult HitResult;
+
+			// KismetTraceUtils.cppのConfigureCollisionParams()を参考にしている
+			static const FName SphereTraceSingleName(TEXT("SphereTraceSingle"));
+			FCollisionQueryParams Params(SphereTraceSingleName, TStatId(), bTraceComplex);
+			Params.bReturnPhysicalMaterial = true;
+			Params.bReturnFaceIndex = false;
+			Params.AddIgnoredComponent(SkeletalMeshComp);
+
+			// クエリはスフィアのあるその場所で、直近のHitひとつのみ確認する
+			bool bHit = World->SweepSingleByChannel(HitResult, PosWS, PosWS, FQuat::Identity, ECollisionChannel::ECC_WorldStatic, FCollisionShape::MakeSphere(Sphere.Radius), Params);
+			if (bHit)
 			{
-				// TODO: Stiffnessで押し出しをすると、押し出しが小さすぎて重力影響の方がおおきく負けてしまう
-				// とりあえず押し出しだけにしておく
-				//Sphere.WorkLocation += OverPenetrateDistance * ImpactNormalCS * Stiffness;
-				Sphere.WorkLocation += OverPenetrateDistance * ImpactNormalCS;
-			}
-		}
+				const FVector& ImpactPosCS = CSToWS.InverseTransformPosition(HitResult.ImpactPoint);
+				const FVector& ImpactNormalCS = CSToWS.InverseTransformVector(HitResult.ImpactNormal).GetSafeNormal();
 
-		if (bDebugDrawCollisionQuery)
-		{
-			float Radius = Sphere.Radius;
-
-			FFunctionGraphTask::CreateAndDispatchWhenReady(
-				[World, PosWS, Radius, bHit, HitResult]()
+				// UKismetSystemLibrary::SphereTraceSingle()であってもスフィアとポリゴンとのコリジョンでは、
+				// スフィアの中心との最近接点がImpactPointとされるようだ。つまりスフィア中心点からポリゴンに
+				// ひいた垂線の交点
+				float OverPenetrateDistance = Sphere.Radius * PenetrateDepthRadiusRatio - ((Sphere.WorkLocation - ImpactPosCS) | ImpactNormalCS); // DotProductにすることで、中心さえもめりこんだケースでも対応する
+				if (OverPenetrateDistance > 0.0f)
 				{
-					bool bPersistent = false;
-					float LifeTime = 0.0f;
-					const FColor& ShapeColor = FColor::Blue;
-					const FLinearColor& TraceColor = FLinearColor::Red;
-					const FLinearColor& TraceHitColor = FLinearColor::Green;
+					// TODO: Stiffnessで押し出しをすると、押し出しが小さすぎて他の挙動による位置移動の方が移動量が大きくて負けてしまう
+					// TODO: ただ、大きいStiffnessで押し出ししても、剛体がはずむような動きで、あまり粘性体っぽいはずみになってないので単純な押し出しで十分だと思う
+					//Sphere.WorkLocation += OverPenetrateDistance * ImpactNormalCS * Stiffness;
+					Sphere.WorkLocation += OverPenetrateDistance * ImpactNormalCS;
+				}
+			}
 
-					DebugDrawSphereTraceSingle(World, PosWS, PosWS, Radius, bHit, HitResult, TraceColor, TraceHitColor);
-				},
-				TStatId(), nullptr, ENamedThreads::GameThread
-			);
+			if (bDebugDrawCollisionQuery)
+			{
+				float Radius = Sphere.Radius;
+
+				FFunctionGraphTask::CreateAndDispatchWhenReady(
+					[World, PosWS, Radius, bHit, HitResult]()
+					{
+						bool bPersistent = false;
+						float LifeTime = 0.0f;
+						const FColor& ShapeColor = FColor::Blue;
+						const FLinearColor& TraceColor = FLinearColor::Red;
+						const FLinearColor& TraceHitColor = FLinearColor::Green;
+
+						DebugDrawSphereTraceSingle(World, PosWS, PosWS, Radius, bHit, HitResult, TraceColor, TraceHitColor);
+					},
+					TStatId(), nullptr, ENamedThreads::GameThread
+				);
+			}
 		}
 	}
 

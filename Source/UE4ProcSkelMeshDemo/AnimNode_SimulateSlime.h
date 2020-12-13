@@ -24,10 +24,6 @@ public:
 	UPROPERTY(EditAnywhere, Category = General)
 	bool bDebugDrawPhysicsAsset = false;
 
-	/** Debug draw collision query. */
-	UPROPERTY(EditAnywhere, Category = General)
-	bool bDebugDrawCollisionQuery = false;
-
 	/** Root bone. It`s position is determined by average of all spheres. */
 	UPROPERTY(EditAnywhere, Category = General)
 	FBoneReference RootBone;
@@ -55,6 +51,10 @@ public:
 	/** Ratio of penetrate depth to radius. */
 	UPROPERTY(EditAnywhere, Meta = (EditCondition = "bEnableCollision", UIMin = "0", UIMax = "1", ClampMin = "0", ClampMax = "1"), Category = Collision)
 	float PenetrateDepthRadiusRatio = 0.5f;
+
+	/** Debug draw collision query. */
+	UPROPERTY(EditAnywhere, Meta = (EditCondition = "bEnableCollision"), Category = Collision)
+	bool bDebugDrawCollisionQuery = false;
 
 protected:
 	// FAnimNode_SkeletalControlBase interface
