@@ -7,3 +7,8 @@ It has been tested only UE4.25.4 and Windows.
 The material M_Slime is based on the material in https://github.com/DarknessFX/UE4Metaballs.
 The liscence of the material is following that repogitry.
 Read the README in that repogitry if you want to use the material for any reason.
+
+This repositry includes the assets and source code files of Third Person template of UE4.
+They are under the license which Epic Games Inc determined.
+
+The assets and source code files which is originaly made on this project is under MIT license.
