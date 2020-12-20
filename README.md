@@ -1,8 +1,12 @@
 # UE4ProceduralSkeletalMeshDemo
 
 This demo shows how to generate skeletal mesh asset from program. 
+Execute Content/EUW_NewSkeletalMesh.
 
-It has been tested on UE4.25.4 and 4.26.0, and only on Windows.
+And this demo shows how to simulate slime.
+Play Content\ThirdPersonCPP\Maps\ThirdPersonExampleMap
+
+This has been tested on UE4.25.4 and 4.26.0, and only on Windows.
 
 The material M_Slime is based on the material in https://github.com/DarknessFX/UE4Metaballs.
 The liscence of the material is following that repogitry.
