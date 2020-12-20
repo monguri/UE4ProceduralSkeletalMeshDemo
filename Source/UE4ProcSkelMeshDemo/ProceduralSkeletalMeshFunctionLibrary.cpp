@@ -8,6 +8,7 @@
 #include "SkeletalMeshBuilder.h"
 #include "Animation/Skeleton.h"
 #include "Factories/FbxSkeletalMeshImportData.h"
+#include "Runtime/Launch/Resources/Version.h"
 
 #if WITH_EDITOR // USkeletalMesh::Build()‚ÆFSkeletalMeshImportData‚ª#if WITH_EDITOR‚Å‚Ì’è‹`‚È‚Ì‚Å
 namespace
@@ -830,7 +831,11 @@ namespace
 
 	bool CreateSkeletalMesh(FSkeletalMeshImportData& SkeletalMeshData)
 	{
+#if ENGINE_MINOR_VERSION >= 26
+		UPackage* Package = CreatePackage(TEXT("/Game/NewSkeletalMesh"));
+#else
 		UPackage* Package = CreatePackage(nullptr, TEXT("/Game/NewSkeletalMesh"));
+#endif
 		if(!ensure(Package))
 		{
 			return false;
@@ -854,18 +859,30 @@ namespace
 		const int32 ImportLODModelIndex = 0;
 		FSkeletalMeshLODModel& LODModel = ImportedResource->LODModels[ImportLODModelIndex];
 
+#if ENGINE_MINOR_VERSION >= 26
+		SkeletalMeshHelper::ProcessImportMeshMaterials(SkeletalMesh->Materials, SkeletalMeshData);
+#else
 		ProcessImportMeshMaterials(SkeletalMesh->Materials, SkeletalMeshData);
+#endif
 
 		int32 SkeletalDepth = 1;
 		const USkeleton* ExistingSkeleton = nullptr;
+#if ENGINE_MINOR_VERSION >= 26
+		if (!SkeletalMeshHelper::ProcessImportMeshSkeleton(ExistingSkeleton, SkeletalMesh->RefSkeleton, SkeletalDepth, SkeletalMeshData))
+#else
 		if (!ProcessImportMeshSkeleton(ExistingSkeleton, SkeletalMesh->RefSkeleton, SkeletalDepth, SkeletalMeshData))
+#endif
 		{
 			SkeletalMesh->ClearFlags(RF_Standalone);
 			SkeletalMesh->Rename(NULL, GetTransientPackage(), REN_DontCreateRedirectors);
 			return false;
 		}
 
+#if ENGINE_MINOR_VERSION >= 26
+		SkeletalMeshHelper::ProcessImportMeshInfluences(SkeletalMeshData, SkeletalMesh->GetPathName());
+#else
 		ProcessImportMeshInfluences(SkeletalMeshData);
+#endif
 
 		SkeletalMesh->SaveLODImportedData(ImportLODModelIndex, SkeletalMeshData);
 		SkeletalMesh->SetLODImportedDataVersions(ImportLODModelIndex, ESkeletalMeshGeoImportVersions::LatestVersion, ESkeletalMeshSkinningImportVersions::LatestVersion);
@@ -912,7 +929,11 @@ namespace
 
 		// AssetImportDataì¬‚ÍÈ—ª
 
+#if ENGINE_MINOR_VERSION >= 26
+		UPackage* SkeltonPackage = CreatePackage(TEXT("/Game/NewSkeleton"));
+#else
 		UPackage* SkeltonPackage = CreatePackage(nullptr, TEXT("/Game/NewSkeleton"));
+#endif
 		if(!ensure(SkeltonPackage))
 		{
 			return false;
