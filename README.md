@@ -3,8 +3,14 @@
 This demo shows how to generate skeletal mesh asset from program. 
 Execute Content/EUW_NewSkeletalMesh.
 
+![Spheres](ManySphere.jpeg "Spheres")
+
 And this demo shows how to simulate slime.
 Play Content\ThirdPersonCPP\Maps\ThirdPersonExampleMap
+
+![Skeletal mesh to draw slime.](BoxWithTetrahedronJoints.jpeg "Skeletal mesh before setting material for slime.")
+![Slime skeletal mesh.](slime2.gif "Slime skeletal mesh.")
+![Slime down stairs.](SlimeDownStairs.gif "Slime down stairs.")
 
 This has been tested on UE4.25.4 and 4.26.0, and only on Windows.
 
