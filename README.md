@@ -21,4 +21,7 @@ Read the README in that repogitry if you want to use the material for any reason
 This repositry includes the assets and source code files of Third Person template of UE4.
 They are under the license which Epic Games Inc determined.
 
+The source code files below Plugins/SPCRJointDynamics are copied from https://github.com/SPARK-inc/SPCRJointDynamicsUE4.
+They are under the license which that repository defined.
+
 The assets and source code files which is originaly made on this project is under MIT license.
