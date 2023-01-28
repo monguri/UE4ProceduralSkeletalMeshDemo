@@ -12,7 +12,7 @@ Play Content\ThirdPersonCPP\Maps\ThirdPersonExampleMap
 ![Slime skeletal mesh.](slime2.gif "Slime skeletal mesh.")
 ![Slime down stairs.](SlimeDownStairs.gif "Slime down stairs.")
 
-This has been tested on UE4.25.4 and 4.26.0, and only on Windows.
+This has been tested on UE4.25.4 and 4.26.0, 4.27.3, 5.1.0 and only on Windows.
 
 The material M_Slime is based on the material in https://github.com/DarknessFX/UE4Metaballs.
 The liscence of the material is following that repogitry.
