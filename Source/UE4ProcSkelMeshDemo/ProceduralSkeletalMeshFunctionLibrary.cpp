@@ -10,7 +10,7 @@
 #include "Factories/FbxSkeletalMeshImportData.h"
 #include "Runtime/Launch/Resources/Version.h"
 
-#if ENGINE_MINOR_VERSION >= 27
+#if (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 27) || ENGINE_MAJOR_VERSION > 4
 #include "ImportUtils/SkeletalMeshImportUtils.h"
 #include "IMeshBuilderModule.h"
 #endif
@@ -26,14 +26,20 @@ namespace
 		SkeletalMeshData.Points.Emplace(-10.0f + 50.0f, -10.0f, 0.0f);
 
 		SkeletalMeshImportData::FVertex V0, V1, V2;
-		V0.VertexIndex = 0;
+#if ENGINE_MAJOR_VERSION >= 5
+		V0.UVs[0] = FVector2f(0.0f, 0.0f);
+		V1.UVs[0] = FVector2f(1.0f, 0.0f);
+		V2.UVs[0] = FVector2f(0.0f, 1.0f);
+#else
 		V0.UVs[0] = FVector2D(0.0f, 0.0f);
+		V1.UVs[0] = FVector2D(1.0f, 0.0f);
+		V2.UVs[0] = FVector2D(0.0f, 1.0f);
+#endif
+		V0.VertexIndex = 0;
 		V0.MatIndex = 0;
 		V1.VertexIndex = 1;
-		V1.UVs[0] = FVector2D(1.0f, 0.0f);
 		V1.MatIndex = 0;
 		V2.VertexIndex = 2;
-		V2.UVs[0] = FVector2D(0.0f, 1.0f);
 		V2.MatIndex = 0;
 
 		SkeletalMeshData.Wedges.Add(V0);
@@ -50,12 +56,20 @@ namespace
 		SkeletalMeshData.Faces.Add(T0);
 
 		SkeletalMeshImportData::FJointPos J0, J1;
+#if ENGINE_MAJOR_VERSION >= 5
+		J0.Transform = FTransform3f::Identity;
+#else
 		J0.Transform = FTransform::Identity;
+#endif
 		J0.Length = 1.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
 		J0.XSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
 		J0.YSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
 		J0.ZSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
+#if ENGINE_MAJOR_VERSION >= 5
+		J1.Transform = FTransform3f(FVector3f(50.0f, 0.0f, 0.0f));
+#else
 		J1.Transform = FTransform(FVector(50.0f, 0.0f, 0.0f));
+#endif
 		J1.Length = 1.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
 		J1.XSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
 		J1.YSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
@@ -117,7 +131,11 @@ namespace
 		// Rootジョイント
 		// スキンウェイトはどのメッシュにも割り当てない
 		SkeletalMeshImportData::FJointPos RootJointPos;
+#if ENGINE_MAJOR_VERSION >= 5
+		RootJointPos.Transform = FTransform3f::Identity;
+#else
 		RootJointPos.Transform = FTransform::Identity;
+#endif
 		RootJointPos.Length = 1.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
 		RootJointPos.XSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
 		RootJointPos.YSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
@@ -166,14 +184,20 @@ namespace
 			for (int32 Column = 0; Column < 2 * DIVISION; ++Column)
 			{
 				SkeletalMeshImportData::FVertex V0, V1, V2;
-				V0.VertexIndex = 0 + PointIndexOffset;
+#if ENGINE_MAJOR_VERSION >= 5
+				V0.UVs[0] = FVector2f(1.0f / (2 * DIVISION) * (Column + 0.5f), 0.0f);
+				V1.UVs[0] = FVector2f(1.0f / (2 * DIVISION) * Column, 1.0f / DIVISION);
+				V2.UVs[0] = FVector2f(1.0f / (2 * DIVISION) * (Column + 1), 1.0f / DIVISION);
+#else
 				V0.UVs[0] = FVector2D(1.0f / (2 * DIVISION) * (Column + 0.5f), 0.0f);
+				V1.UVs[0] = FVector2D(1.0f / (2 * DIVISION) * Column, 1.0f / DIVISION);
+				V2.UVs[0] = FVector2D(1.0f / (2 * DIVISION) * (Column + 1), 1.0f / DIVISION);
+#endif
+				V0.VertexIndex = 0 + PointIndexOffset;
 				V0.MatIndex = 0;
 				V1.VertexIndex = Column + 1 + PointIndexOffset;
-				V1.UVs[0] = FVector2D(1.0f / (2 * DIVISION) * Column, 1.0f / DIVISION);
 				V1.MatIndex = 0;
 				V2.VertexIndex = (Column + 1) % (2 * DIVISION) + 1 + PointIndexOffset;
-				V2.UVs[0] = FVector2D(1.0f / (2 * DIVISION) * (Column + 1), 1.0f / DIVISION);
 				V2.MatIndex = 0;
 				SkeletalMeshData.Wedges.Add(V0);
 				SkeletalMeshData.Wedges.Add(V2); // 時計回りにするので
@@ -197,17 +221,24 @@ namespace
 				for (int32 Column = 0; Column < 2 * DIVISION; ++Column)
 				{
 					SkeletalMeshImportData::FVertex V0, V1, V2, V3;
-					V0.VertexIndex = (Row - 1) * 2 * DIVISION + Column + 1 + PointIndexOffset;
+#if ENGINE_MAJOR_VERSION >= 5
+					V0.UVs[0] = FVector2f(1.0f / (2 * DIVISION) * Column, 1.0f / DIVISION * Row);
+					V1.UVs[0] = FVector2f(1.0f / (2 * DIVISION) * (Column + 1), 1.0f / DIVISION * Row);
+					V2.UVs[0] = FVector2f(1.0f / (2 * DIVISION) * Column, 1.0f / DIVISION * (Row + 1));
+					V3.UVs[0] = FVector2f(1.0f / (2 * DIVISION) * (Column + 1), 1.0f / DIVISION * (Row + 1));
+#else
 					V0.UVs[0] = FVector2D(1.0f / (2 * DIVISION) * Column, 1.0f / DIVISION * Row);
+					V1.UVs[0] = FVector2D(1.0f / (2 * DIVISION) * (Column + 1), 1.0f / DIVISION * Row);
+					V2.UVs[0] = FVector2D(1.0f / (2 * DIVISION) * Column, 1.0f / DIVISION * (Row + 1));
+					V3.UVs[0] = FVector2D(1.0f / (2 * DIVISION) * (Column + 1), 1.0f / DIVISION * (Row + 1));
+#endif
+					V0.VertexIndex = (Row - 1) * 2 * DIVISION + Column + 1 + PointIndexOffset;
 					V0.MatIndex = 0;
 					V1.VertexIndex = (Row - 1) * 2 * DIVISION + (Column + 1) % (2 * DIVISION) + 1 + SphereIndex * NUM_POINTS_A_SPHERE;
-					V1.UVs[0] = FVector2D(1.0f / (2 * DIVISION) * (Column + 1), 1.0f / DIVISION * Row);
 					V1.MatIndex = 0;
 					V2.VertexIndex = Row * 2 * DIVISION + Column + 1 + PointIndexOffset;
-					V2.UVs[0] = FVector2D(1.0f / (2 * DIVISION) * Column, 1.0f / DIVISION * (Row + 1));
 					V2.MatIndex = 0;
 					V3.VertexIndex = Row * 2 * DIVISION + (Column + 1) % (2 * DIVISION) + 1 + PointIndexOffset;
-					V3.UVs[0] = FVector2D(1.0f / (2 * DIVISION) * (Column + 1), 1.0f / DIVISION * (Row + 1));
 					V3.MatIndex = 0;
 
 					SkeletalMeshData.Wedges.Add(V0);
@@ -245,14 +276,20 @@ namespace
 			for (int32 Column = 0; Column < 2 * DIVISION; ++Column)
 			{
 				SkeletalMeshImportData::FVertex V0, V1, V2;
-				V0.VertexIndex = NUM_POINTS_A_SPHERE - 1 + PointIndexOffset;
+#if ENGINE_MAJOR_VERSION >= 5
+				V0.UVs[0] = FVector2f(1.0f / (2 * DIVISION) * (Column + 0.5f), 1.0f);
+				V1.UVs[0] = FVector2f(1.0f / (2 * DIVISION) * Column, 1.0f - 1.0f / DIVISION);
+				V2.UVs[0] = FVector2f(1.0f / (2 * DIVISION) * (Column + 1), 1.0f - 1.0f / DIVISION);
+#else
 				V0.UVs[0] = FVector2D(1.0f / (2 * DIVISION) * (Column + 0.5f), 1.0f);
+				V1.UVs[0] = FVector2D(1.0f / (2 * DIVISION) * Column, 1.0f - 1.0f / DIVISION);
+				V2.UVs[0] = FVector2D(1.0f / (2 * DIVISION) * (Column + 1), 1.0f - 1.0f / DIVISION);
+#endif
+				V0.VertexIndex = NUM_POINTS_A_SPHERE - 1 + PointIndexOffset;
 				V0.MatIndex = 0;
 				V1.VertexIndex = NUM_POINTS_A_SPHERE - 1 - DIVISION * 2 + Column + PointIndexOffset;
-				V1.UVs[0] = FVector2D(1.0f / (2 * DIVISION) * Column, 1.0f - 1.0f / DIVISION);
 				V1.MatIndex = 0;
 				V2.VertexIndex = NUM_POINTS_A_SPHERE - 1 - DIVISION * 2 + (Column + 1) % (2 * DIVISION) + PointIndexOffset;
-				V2.UVs[0] = FVector2D(1.0f / (2 * DIVISION) * (Column + 1), 1.0f - 1.0f / DIVISION);
 				V2.MatIndex = 0;
 				SkeletalMeshData.Wedges.Add(V0);
 				SkeletalMeshData.Wedges.Add(V1);
@@ -271,7 +308,11 @@ namespace
 			}
 
 			SkeletalMeshImportData::FJointPos ChildJointPos;
+#if ENGINE_MAJOR_VERSION >= 5
+			ChildJointPos.Transform = FTransform3f(FVector3f(CenterPos));
+#else
 			ChildJointPos.Transform = FTransform(CenterPos);
+#endif
 			ChildJointPos.Length = 1.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
 			ChildJointPos.XSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
 			ChildJointPos.YSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
@@ -331,14 +372,20 @@ namespace
 		// Trigngle T0
 		{
 			SkeletalMeshImportData::FVertex V00, V01, V02;
-			V00.VertexIndex = 0;
+#if ENGINE_MAJOR_VERSION >= 5
+			V00.UVs[0] = FVector2f(OneThird, 0.0f);
+			V01.UVs[0] = FVector2f(OneThird * 2.0f, 0.0f);
+			V02.UVs[0] = FVector2f(OneThird, OneFourth);
+#else
 			V00.UVs[0] = FVector2D(OneThird, 0.0f);
+			V01.UVs[0] = FVector2D(OneThird * 2.0f, 0.0f);
+			V02.UVs[0] = FVector2D(OneThird, OneFourth);
+#endif
+			V00.VertexIndex = 0;
 			V00.MatIndex = 0;
 			V01.VertexIndex = 1;
-			V01.UVs[0] = FVector2D(OneThird * 2.0f, 0.0f);
 			V01.MatIndex = 0;
 			V02.VertexIndex = 2;
-			V02.UVs[0] = FVector2D(OneThird, OneFourth);
 			V02.MatIndex = 0;
 
 			SkeletalMeshData.Wedges.Add(V00);
@@ -358,14 +405,20 @@ namespace
 		// Trigngle T1
 		{
 			SkeletalMeshImportData::FVertex V10, V11, V12;
-			V10.VertexIndex = 3;
+#if ENGINE_MAJOR_VERSION >= 5
+			V10.UVs[0] = FVector2f(OneThird * 2.0f, OneFourth);
+			V11.UVs[0] = FVector2f(OneThird, OneFourth);
+			V12.UVs[0] = FVector2f(OneThird * 2.0f, 0.0f);
+#else
 			V10.UVs[0] = FVector2D(OneThird * 2.0f, OneFourth);
+			V11.UVs[0] = FVector2D(OneThird, OneFourth);
+			V12.UVs[0] = FVector2D(OneThird * 2.0f, 0.0f);
+#endif
+			V10.VertexIndex = 3;
 			V10.MatIndex = 0;
 			V11.VertexIndex = 2;
-			V11.UVs[0] = FVector2D(OneThird, OneFourth);
 			V11.MatIndex = 0;
 			V12.VertexIndex = 1;
-			V12.UVs[0] = FVector2D(OneThird * 2.0f, 0.0f);
 			V12.MatIndex = 0;
 
 			SkeletalMeshData.Wedges.Add(V10);
@@ -385,14 +438,20 @@ namespace
 		// Trigngle T2
 		{
 			SkeletalMeshImportData::FVertex V20, V21, V22;
-			V20.VertexIndex = 2;
+#if ENGINE_MAJOR_VERSION >= 5
+			V20.UVs[0] = FVector2f(OneThird, OneFourth);
+			V21.UVs[0] = FVector2f(OneThird * 2.0f, OneFourth);
+			V22.UVs[0] = FVector2f(OneThird, OneFourth * 2.0f);
+#else
 			V20.UVs[0] = FVector2D(OneThird, OneFourth);
+			V21.UVs[0] = FVector2D(OneThird * 2.0f, OneFourth);
+			V22.UVs[0] = FVector2D(OneThird, OneFourth * 2.0f);
+#endif
+			V20.VertexIndex = 2;
 			V20.MatIndex = 0;
 			V21.VertexIndex = 3;
-			V21.UVs[0] = FVector2D(OneThird * 2.0f, OneFourth);
 			V21.MatIndex = 0;
 			V22.VertexIndex = 6;
-			V22.UVs[0] = FVector2D(OneThird, OneFourth * 2.0f);
 			V22.MatIndex = 0;
 
 			SkeletalMeshData.Wedges.Add(V20);
@@ -412,14 +471,20 @@ namespace
 		// Trigngle T3
 		{
 			SkeletalMeshImportData::FVertex V30, V31, V32;
-			V30.VertexIndex = 7;
+#if ENGINE_MAJOR_VERSION >= 5
+			V30.UVs[0] = FVector2f(OneThird * 2.0f, OneFourth * 2.0f);
+			V31.UVs[0] = FVector2f(OneThird, OneFourth * 2.0f);
+			V32.UVs[0] = FVector2f(OneThird * 2.0f, OneFourth);
+#else
 			V30.UVs[0] = FVector2D(OneThird * 2.0f, OneFourth * 2.0f);
+			V31.UVs[0] = FVector2D(OneThird, OneFourth * 2.0f);
+			V32.UVs[0] = FVector2D(OneThird * 2.0f, OneFourth);
+#endif
+			V30.VertexIndex = 7;
 			V30.MatIndex = 0;
 			V31.VertexIndex = 6;
-			V31.UVs[0] = FVector2D(OneThird, OneFourth * 2.0f);
 			V31.MatIndex = 0;
 			V32.VertexIndex = 3;
-			V32.UVs[0] = FVector2D(OneThird * 2.0f, OneFourth);
 			V32.MatIndex = 0;
 
 			SkeletalMeshData.Wedges.Add(V30);
@@ -439,14 +504,20 @@ namespace
 		// Trigngle T4
 		{
 			SkeletalMeshImportData::FVertex V40, V41, V42;
-			V40.VertexIndex = 6;
+#if ENGINE_MAJOR_VERSION >= 5
+			V40.UVs[0] = FVector2f(OneThird, OneFourth * 2.0f);
+			V41.UVs[0] = FVector2f(OneThird * 2.0f, OneFourth * 2.0f);
+			V42.UVs[0] = FVector2f(OneThird, OneFourth * 3.0f);
+#else
 			V40.UVs[0] = FVector2D(OneThird, OneFourth * 2.0f);
+			V41.UVs[0] = FVector2D(OneThird * 2.0f, OneFourth * 2.0f);
+			V42.UVs[0] = FVector2D(OneThird, OneFourth * 3.0f);
+#endif
+			V40.VertexIndex = 6;
 			V40.MatIndex = 0;
 			V41.VertexIndex = 7;
-			V41.UVs[0] = FVector2D(OneThird * 2.0f, OneFourth * 2.0f);
 			V41.MatIndex = 0;
 			V42.VertexIndex = 4;
-			V42.UVs[0] = FVector2D(OneThird, OneFourth * 3.0f);
 			V42.MatIndex = 0;
 
 			SkeletalMeshData.Wedges.Add(V40);
@@ -466,14 +537,20 @@ namespace
 		// Trigngle T5
 		{
 			SkeletalMeshImportData::FVertex V50, V51, V52;
-			V50.VertexIndex = 5;
+#if ENGINE_MAJOR_VERSION >= 5
+			V50.UVs[0] = FVector2f(OneThird * 2.0f, OneFourth * 3.0f);
+			V51.UVs[0] = FVector2f(OneThird, OneFourth * 3.0f);
+			V52.UVs[0] = FVector2f(OneThird * 2.0f, OneFourth * 2.0f);
+#else
 			V50.UVs[0] = FVector2D(OneThird * 2.0f, OneFourth * 3.0f);
+			V51.UVs[0] = FVector2D(OneThird, OneFourth * 3.0f);
+			V52.UVs[0] = FVector2D(OneThird * 2.0f, OneFourth * 2.0f);
+#endif
+			V50.VertexIndex = 5;
 			V50.MatIndex = 0;
 			V51.VertexIndex = 4;
-			V51.UVs[0] = FVector2D(OneThird, OneFourth * 3.0f);
 			V51.MatIndex = 0;
 			V52.VertexIndex = 7;
-			V52.UVs[0] = FVector2D(OneThird * 2.0f, OneFourth * 2.0f);
 			V52.MatIndex = 0;
 
 			SkeletalMeshData.Wedges.Add(V50);
@@ -493,14 +570,20 @@ namespace
 		// Trigngle T6
 		{
 			SkeletalMeshImportData::FVertex V60, V61, V62;
-			V60.VertexIndex = 4;
+#if ENGINE_MAJOR_VERSION >= 5
+			V60.UVs[0] = FVector2f(OneThird, OneFourth * 3.0f);
+			V61.UVs[0] = FVector2f(OneThird * 2.0f, OneFourth * 3.0f);
+			V62.UVs[0] = FVector2f(OneThird, 1.0f);
+#else
 			V60.UVs[0] = FVector2D(OneThird, OneFourth * 3.0f);
+			V61.UVs[0] = FVector2D(OneThird * 2.0f, OneFourth * 3.0f);
+			V62.UVs[0] = FVector2D(OneThird, 1.0f);
+#endif
+			V60.VertexIndex = 4;
 			V60.MatIndex = 0;
 			V61.VertexIndex = 5;
-			V61.UVs[0] = FVector2D(OneThird * 2.0f, OneFourth * 3.0f);
 			V61.MatIndex = 0;
 			V62.VertexIndex = 0;
-			V62.UVs[0] = FVector2D(OneThird, 1.0f);
 			V62.MatIndex = 0;
 
 			SkeletalMeshData.Wedges.Add(V60);
@@ -520,14 +603,20 @@ namespace
 		// Trigngle T7
 		{
 			SkeletalMeshImportData::FVertex V70, V71, V72;
-			V70.VertexIndex = 1;
+#if ENGINE_MAJOR_VERSION >= 5
+			V70.UVs[0] = FVector2f(OneThird * 2.0f, 1.0f);
+			V71.UVs[0] = FVector2f(OneThird, 1.0f);
+			V72.UVs[0] = FVector2f(OneThird * 2.0f, OneFourth * 3.0f);
+#else
 			V70.UVs[0] = FVector2D(OneThird * 2.0f, 1.0f);
+			V71.UVs[0] = FVector2D(OneThird, 1.0f);
+			V72.UVs[0] = FVector2D(OneThird * 2.0f, OneFourth * 3.0f);
+#endif
+			V70.VertexIndex = 1;
 			V70.MatIndex = 0;
 			V71.VertexIndex = 0;
-			V71.UVs[0] = FVector2D(OneThird, 1.0f);
 			V71.MatIndex = 0;
 			V72.VertexIndex = 5;
-			V72.UVs[0] = FVector2D(OneThird * 2.0f, OneFourth * 3.0f);
 			V72.MatIndex = 0;
 
 			SkeletalMeshData.Wedges.Add(V70);
@@ -547,14 +636,20 @@ namespace
 		// Trigngle T8
 		{
 			SkeletalMeshImportData::FVertex V80, V81, V82;
-			V80.VertexIndex = 0;
+#if ENGINE_MAJOR_VERSION >= 5
+			V80.UVs[0] = FVector2f(0.0f, OneFourth);
+			V81.UVs[0] = FVector2f(OneThird, OneFourth);
+			V82.UVs[0] = FVector2f(0.0f, OneFourth * 2.0f);
+#else
 			V80.UVs[0] = FVector2D(0.0f, OneFourth);
+			V81.UVs[0] = FVector2D(OneThird, OneFourth);
+			V82.UVs[0] = FVector2D(0.0f, OneFourth * 2.0f);
+#endif
+			V80.VertexIndex = 0;
 			V80.MatIndex = 0;
 			V81.VertexIndex = 2;
-			V81.UVs[0] = FVector2D(OneThird, OneFourth);
 			V81.MatIndex = 0;
 			V82.VertexIndex = 4;
-			V82.UVs[0] = FVector2D(0.0f, OneFourth * 2.0f);
 			V82.MatIndex = 0;
 
 			SkeletalMeshData.Wedges.Add(V80);
@@ -574,14 +669,20 @@ namespace
 		// Trigngle T9
 		{
 			SkeletalMeshImportData::FVertex V90, V91, V92;
-			V90.VertexIndex = 6;
+#if ENGINE_MAJOR_VERSION >= 5
+			V90.UVs[0] = FVector2f(OneThird, OneFourth * 2.0f);
+			V91.UVs[0] = FVector2f(0.0f, OneFourth * 2.0f);
+			V92.UVs[0] = FVector2f(OneThird, OneFourth);
+#else
 			V90.UVs[0] = FVector2D(OneThird, OneFourth * 2.0f);
+			V91.UVs[0] = FVector2D(0.0f, OneFourth * 2.0f);
+			V92.UVs[0] = FVector2D(OneThird, OneFourth);
+#endif
+			V90.VertexIndex = 6;
 			V90.MatIndex = 0;
 			V91.VertexIndex = 4;
-			V91.UVs[0] = FVector2D(0.0f, OneFourth * 2.0f);
 			V91.MatIndex = 0;
 			V92.VertexIndex = 2;
-			V92.UVs[0] = FVector2D(OneThird, OneFourth);
 			V92.MatIndex = 0;
 
 			SkeletalMeshData.Wedges.Add(V90);
@@ -601,14 +702,20 @@ namespace
 		// Trigngle T10
 		{
 			SkeletalMeshImportData::FVertex V100, V101, V102;
-			V100.VertexIndex = 3;
+#if ENGINE_MAJOR_VERSION >= 5
+			V100.UVs[0] = FVector2f(OneThird * 2.0f, OneFourth);
+			V101.UVs[0] = FVector2f(OneThird * 3.0f, OneFourth);
+			V102.UVs[0] = FVector2f(OneThird * 2.0f, OneFourth * 2.0f);
+#else
 			V100.UVs[0] = FVector2D(OneThird * 2.0f, OneFourth);
+			V101.UVs[0] = FVector2D(OneThird * 3.0f, OneFourth);
+			V102.UVs[0] = FVector2D(OneThird * 2.0f, OneFourth * 2.0f);
+#endif
+			V100.VertexIndex = 3;
 			V100.MatIndex = 0;
 			V101.VertexIndex = 1;
-			V101.UVs[0] = FVector2D(OneThird * 3.0f, OneFourth);
 			V101.MatIndex = 0;
 			V102.VertexIndex = 7;
-			V102.UVs[0] = FVector2D(OneThird * 2.0f, OneFourth * 2.0f);
 			V102.MatIndex = 0;
 
 			SkeletalMeshData.Wedges.Add(V100);
@@ -628,14 +735,20 @@ namespace
 		// Trigngle T11
 		{
 			SkeletalMeshImportData::FVertex V110, V111, V112;
-			V110.VertexIndex = 5;
+#if ENGINE_MAJOR_VERSION >= 5
+			V110.UVs[0] = FVector2f(1.0f, OneFourth * 2.0f);
+			V111.UVs[0] = FVector2f(OneThird * 2.0f, OneFourth * 2.0f);
+			V112.UVs[0] = FVector2f(1.0f, OneFourth);
+#else
 			V110.UVs[0] = FVector2D(1.0f, OneFourth * 2.0f);
+			V111.UVs[0] = FVector2D(OneThird * 2.0f, OneFourth * 2.0f);
+			V112.UVs[0] = FVector2D(1.0f, OneFourth);
+#endif
+			V110.VertexIndex = 5;
 			V110.MatIndex = 0;
 			V111.VertexIndex = 7;
-			V111.UVs[0] = FVector2D(OneThird * 2.0f, OneFourth * 2.0f);
 			V111.MatIndex = 0;
 			V112.VertexIndex = 1;
-			V112.UVs[0] = FVector2D(1.0f, OneFourth);
 			V112.MatIndex = 0;
 
 			SkeletalMeshData.Wedges.Add(V110);
@@ -674,7 +787,11 @@ namespace
 		// Rootジョイント
 		// スキンウェイトはどのメッシュにも割り当てない
 		SkeletalMeshImportData::FJointPos RootJointPos;
+#if ENGINE_MAJOR_VERSION >= 5
+		RootJointPos.Transform = FTransform3f::Identity;
+#else
 		RootJointPos.Transform = FTransform::Identity;
+#endif
 		RootJointPos.Length = 1.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
 		RootJointPos.XSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
 		RootJointPos.YSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
@@ -699,7 +816,11 @@ namespace
 			);
 
 			SkeletalMeshImportData::FJointPos ChildJointPos;
+#if ENGINE_MAJOR_VERSION >= 5
+			ChildJointPos.Transform = FTransform3f(FVector3f(CenterPos));
+#else
 			ChildJointPos.Transform = FTransform(CenterPos);
+#endif
 			ChildJointPos.Length = 1.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
 			ChildJointPos.XSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
 			ChildJointPos.YSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
@@ -746,7 +867,11 @@ namespace
 		// Rootジョイント
 		// スキンウェイトはどのメッシュにも割り当てない
 		SkeletalMeshImportData::FJointPos RootJointPos;
+#if ENGINE_MAJOR_VERSION >= 5
+		RootJointPos.Transform = FTransform3f::Identity;
+#else
 		RootJointPos.Transform = FTransform::Identity;
+#endif
 		RootJointPos.Length = 1.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
 		RootJointPos.XSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
 		RootJointPos.YSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
@@ -793,7 +918,11 @@ namespace
 			const FVector& CenterPos = CenterPositions[ChildIndex];
 
 			SkeletalMeshImportData::FJointPos ChildJointPos;
+#if ENGINE_MAJOR_VERSION >= 5
+			ChildJointPos.Transform = FTransform3f(FVector3f(CenterPos));
+#else
 			ChildJointPos.Transform = FTransform(CenterPos);
+#endif
 			ChildJointPos.Length = 1.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
 			ChildJointPos.XSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
 			ChildJointPos.YSize = 100.0f; // 現状使われてないのでUSDSkeletalDataConversion.cppと同じ値をいれておく
@@ -836,7 +965,7 @@ namespace
 
 	bool CreateSkeletalMesh(FSkeletalMeshImportData& SkeletalMeshData)
 	{
-#if ENGINE_MINOR_VERSION >= 26
+#if (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 26) || ENGINE_MAJOR_VERSION >= 5
 		UPackage* Package = CreatePackage(TEXT("/Game/NewSkeletalMesh"));
 #else
 		UPackage* Package = CreatePackage(nullptr, TEXT("/Game/NewSkeletalMesh"));
@@ -852,7 +981,11 @@ namespace
 			return false;
 		}
 
+#if ENGINE_MAJOR_VERSION >= 5
+		FBox3f BoundingBox(SkeletalMeshData.Points.GetData(), SkeletalMeshData.Points.Num());
+#else
 		FBox BoundingBox(SkeletalMeshData.Points.GetData(), SkeletalMeshData.Points.Num());
+#endif
 
 		SkeletalMesh->PreEditChange(nullptr);
 		SkeletalMesh->InvalidateDeriveDataCacheGUID();
@@ -864,9 +997,9 @@ namespace
 		const int32 ImportLODModelIndex = 0;
 		FSkeletalMeshLODModel& LODModel = ImportedResource->LODModels[ImportLODModelIndex];
 
-#if ENGINE_MINOR_VERSION >= 27
+#if (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 27) || ENGINE_MAJOR_VERSION >= 5
 		SkeletalMeshImportUtils::ProcessImportMeshMaterials(SkeletalMesh->GetMaterials(), SkeletalMeshData);
-#elif ENGINE_MINOR_VERSION == 26
+#elif ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION == 26
 		SkeletalMeshHelper::ProcessImportMeshMaterials(SkeletalMesh->Materials, SkeletalMeshData);
 #else
 		ProcessImportMeshMaterials(SkeletalMesh->Materials, SkeletalMeshData);
@@ -874,9 +1007,9 @@ namespace
 
 		int32 SkeletalDepth = 1;
 		const USkeleton* ExistingSkeleton = nullptr;
-#if ENGINE_MINOR_VERSION >= 27
+#if (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 27) || ENGINE_MAJOR_VERSION >= 5
 		if (!SkeletalMeshImportUtils::ProcessImportMeshSkeleton(ExistingSkeleton, SkeletalMesh->GetRefSkeleton(), SkeletalDepth, SkeletalMeshData))
-#elif ENGINE_MINOR_VERSION == 26
+#elif ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION == 26
 		if (!SkeletalMeshHelper::ProcessImportMeshSkeleton(ExistingSkeleton, SkeletalMesh->RefSkeleton, SkeletalDepth, SkeletalMeshData))
 #else
 		if (!ProcessImportMeshSkeleton(ExistingSkeleton, SkeletalMesh->RefSkeleton, SkeletalDepth, SkeletalMeshData))
@@ -887,9 +1020,9 @@ namespace
 			return false;
 		}
 
-#if ENGINE_MINOR_VERSION >= 27
+#if (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 27) || ENGINE_MAJOR_VERSION >= 5
 		SkeletalMeshImportUtils::ProcessImportMeshInfluences(SkeletalMeshData, SkeletalMesh->GetPathName());
-#elif ENGINE_MINOR_VERSION >= 26
+#elif ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION == 26
 		SkeletalMeshHelper::ProcessImportMeshInfluences(SkeletalMeshData, SkeletalMesh->GetPathName());
 #else
 		ProcessImportMeshInfluences(SkeletalMeshData);
@@ -905,9 +1038,13 @@ namespace
 		NewLODInfo.ReductionSettings.MaxDeviationPercentage = 0.0f;
 		NewLODInfo.LODHysteresis = 0.02f;
 
+#if ENGINE_MAJOR_VERSION >= 5
+		SkeletalMesh->SetImportedBounds(FBoxSphereBounds(FBox(BoundingBox)));
+#else
 		SkeletalMesh->SetImportedBounds(FBoxSphereBounds(BoundingBox));
+#endif
 
-#if ENGINE_MINOR_VERSION >= 27
+#if (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 27) || ENGINE_MAJOR_VERSION >= 5
 		SkeletalMesh->SetHasVertexColors(SkeletalMeshData.bHasVertexColors);
 		SkeletalMesh->SetVertexColorGuid(FGuid());
 #else
@@ -918,7 +1055,9 @@ namespace
 		LODModel.NumTexCoords = FMath::Max<uint32>(1, SkeletalMeshData.NumTexCoords);
 
 		FSkeletalMeshBuildSettings BuildOptions;
-		BuildOptions.bBuildAdjacencyBuffer = true;
+		BuildOptions.bUseFullPrecisionUVs = false;
+		BuildOptions.bUseBackwardsCompatibleF16TruncUVs = false;
+		BuildOptions.bUseHighPrecisionTangentBasis = false;
 		BuildOptions.bRecomputeNormals = true;
 		BuildOptions.bRecomputeTangents = true;
 		BuildOptions.bUseMikkTSpace = true;
@@ -932,7 +1071,7 @@ namespace
 		check(SkeletalMesh->GetLODInfo(ImportLODModelIndex) != nullptr);
 		SkeletalMesh->GetLODInfo(ImportLODModelIndex)->BuildSettings = BuildOptions;
 		bool bRegenDepLODs = false;
-#if ENGINE_MINOR_VERSION >= 27
+#if (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 27) || ENGINE_MAJOR_VERSION >= 5
 		FSkeletalMeshBuildParameters SkeletalMeshBuildParameters(SkeletalMesh, GetTargetPlatformManagerRef().GetRunningTargetPlatform(), ImportLODModelIndex, bRegenDepLODs);
 		bool Success = IMeshBuilderModule::GetForRunningPlatform().BuildSkeletalMesh(SkeletalMeshBuildParameters);
 #else
@@ -940,7 +1079,11 @@ namespace
 #endif
 		if (!Success)
 		{
+#if ENGINE_MAJOR_VERSION >= 5
+			SkeletalMesh->MarkAsGarbage();
+#else
 			SkeletalMesh->MarkPendingKill();
+#endif
 			return false;
 		}
 
@@ -950,7 +1093,7 @@ namespace
 
 		// AssetImportData作成は省略
 
-#if ENGINE_MINOR_VERSION >= 26
+#if (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 26) || ENGINE_MAJOR_VERSION >= 5
 		UPackage* SkeltonPackage = CreatePackage(TEXT("/Game/NewSkeleton"));
 #else
 		UPackage* SkeltonPackage = CreatePackage(nullptr, TEXT("/Game/NewSkeleton"));
@@ -971,7 +1114,7 @@ namespace
 			return false;
 		}
 
-#if ENGINE_MINOR_VERSION >= 27
+#if (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 27) || ENGINE_MAJOR_VERSION >= 5
 		SkeletalMesh->SetSkeleton(Skeleton);
 #else
 		SkeletalMesh->Skeleton = Skeleton;
@@ -980,7 +1123,7 @@ namespace
 		// PhysicsAsset作成は省略
 		SkeletalMesh->MarkPackageDirty();
 
-#if ENGINE_MINOR_VERSION >= 27
+#if (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 27) || ENGINE_MAJOR_VERSION >= 5
 		SkeletalMesh->SetPhysicsAsset(nullptr);
 #else
 		SkeletalMesh->PhysicsAsset = nullptr;
