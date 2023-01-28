@@ -10,6 +10,11 @@
 #include "Factories/FbxSkeletalMeshImportData.h"
 #include "Runtime/Launch/Resources/Version.h"
 
+#if ENGINE_MINOR_VERSION >= 27
+#include "ImportUtils/SkeletalMeshImportUtils.h"
+#include "IMeshBuilderModule.h"
+#endif
+
 #if WITH_EDITOR // USkeletalMesh::Build()‚ÆFSkeletalMeshImportData‚ª#if WITH_EDITOR‚Å‚Ì’è‹`‚È‚Ì‚Å
 namespace
 {
@@ -859,7 +864,9 @@ namespace
 		const int32 ImportLODModelIndex = 0;
 		FSkeletalMeshLODModel& LODModel = ImportedResource->LODModels[ImportLODModelIndex];
 
-#if ENGINE_MINOR_VERSION >= 26
+#if ENGINE_MINOR_VERSION >= 27
+		SkeletalMeshImportUtils::ProcessImportMeshMaterials(SkeletalMesh->GetMaterials(), SkeletalMeshData);
+#elif ENGINE_MINOR_VERSION == 26
 		SkeletalMeshHelper::ProcessImportMeshMaterials(SkeletalMesh->Materials, SkeletalMeshData);
 #else
 		ProcessImportMeshMaterials(SkeletalMesh->Materials, SkeletalMeshData);
@@ -867,7 +874,9 @@ namespace
 
 		int32 SkeletalDepth = 1;
 		const USkeleton* ExistingSkeleton = nullptr;
-#if ENGINE_MINOR_VERSION >= 26
+#if ENGINE_MINOR_VERSION >= 27
+		if (!SkeletalMeshImportUtils::ProcessImportMeshSkeleton(ExistingSkeleton, SkeletalMesh->GetRefSkeleton(), SkeletalDepth, SkeletalMeshData))
+#elif ENGINE_MINOR_VERSION == 26
 		if (!SkeletalMeshHelper::ProcessImportMeshSkeleton(ExistingSkeleton, SkeletalMesh->RefSkeleton, SkeletalDepth, SkeletalMeshData))
 #else
 		if (!ProcessImportMeshSkeleton(ExistingSkeleton, SkeletalMesh->RefSkeleton, SkeletalDepth, SkeletalMeshData))
@@ -878,7 +887,9 @@ namespace
 			return false;
 		}
 
-#if ENGINE_MINOR_VERSION >= 26
+#if ENGINE_MINOR_VERSION >= 27
+		SkeletalMeshImportUtils::ProcessImportMeshInfluences(SkeletalMeshData, SkeletalMesh->GetPathName());
+#elif ENGINE_MINOR_VERSION >= 26
 		SkeletalMeshHelper::ProcessImportMeshInfluences(SkeletalMeshData, SkeletalMesh->GetPathName());
 #else
 		ProcessImportMeshInfluences(SkeletalMeshData);
@@ -896,8 +907,13 @@ namespace
 
 		SkeletalMesh->SetImportedBounds(FBoxSphereBounds(BoundingBox));
 
+#if ENGINE_MINOR_VERSION >= 27
+		SkeletalMesh->SetHasVertexColors(SkeletalMeshData.bHasVertexColors);
+		SkeletalMesh->SetVertexColorGuid(FGuid());
+#else
 		SkeletalMesh->bHasVertexColors = SkeletalMeshData.bHasVertexColors;
 		SkeletalMesh->VertexColorGuid = FGuid();
+#endif
 
 		LODModel.NumTexCoords = FMath::Max<uint32>(1, SkeletalMeshData.NumTexCoords);
 
@@ -916,7 +932,12 @@ namespace
 		check(SkeletalMesh->GetLODInfo(ImportLODModelIndex) != nullptr);
 		SkeletalMesh->GetLODInfo(ImportLODModelIndex)->BuildSettings = BuildOptions;
 		bool bRegenDepLODs = false;
+#if ENGINE_MINOR_VERSION >= 27
+		FSkeletalMeshBuildParameters SkeletalMeshBuildParameters(SkeletalMesh, GetTargetPlatformManagerRef().GetRunningTargetPlatform(), ImportLODModelIndex, bRegenDepLODs);
+		bool Success = IMeshBuilderModule::GetForRunningPlatform().BuildSkeletalMesh(SkeletalMeshBuildParameters);
+#else
 		bool Success = FSkeletalMeshBuilder().Build(SkeletalMesh, ImportLODModelIndex, bRegenDepLODs);
+#endif
 		if (!Success)
 		{
 			SkeletalMesh->MarkPendingKill();
@@ -950,12 +971,20 @@ namespace
 			return false;
 		}
 
+#if ENGINE_MINOR_VERSION >= 27
+		SkeletalMesh->SetSkeleton(Skeleton);
+#else
 		SkeletalMesh->Skeleton = Skeleton;
+#endif
 
 		// PhysicsAssetì¬‚ÍÈ—ª
 		SkeletalMesh->MarkPackageDirty();
 
+#if ENGINE_MINOR_VERSION >= 27
+		SkeletalMesh->SetPhysicsAsset(nullptr);
+#else
 		SkeletalMesh->PhysicsAsset = nullptr;
+#endif
 		return true;
 	}
 }
